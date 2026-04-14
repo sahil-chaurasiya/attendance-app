@@ -30,11 +30,14 @@ const countWorkingDays = (month, year) => {
   const cur = new Date(effectiveStart);
   cur.setHours(0, 0, 0, 0);
   while (cur <= effectiveEnd) {
-    if (cur.getDay() !== 0) count++; // Mon–Sat
+    if (cur.getDay() !== 0) count++;
     cur.setDate(cur.getDate() + 1);
   }
   return count;
 };
+
+// A record is "fully attended" only if BOTH check-in AND check-out exist
+const isFullyAttended = (record) => record && record.checkInTime && record.checkOutTime;
 
 // Build a calendar grid for the given month/year
 function buildCalendarGrid(month, year, records) {
@@ -44,14 +47,12 @@ function buildCalendarGrid(month, year, records) {
   const firstDay = new Date(year, month - 1, 1).getDay(); // 0=Sun
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  // Map records by date string YYYY-MM-DD
   const byDate = {};
   for (const r of records) {
     byDate[r.date] = r;
   }
 
   const days = [];
-  // Empty leading cells
   for (let i = 0; i < firstDay; i++) days.push(null);
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -64,16 +65,21 @@ function buildCalendarGrid(month, year, records) {
     const record = byDate[dateStr] || null;
 
     // Determine display status
+    // A day is present/late ONLY if BOTH check-in and check-out exist
+    // A day with check-in but no check-out = absent (record still stored)
     let status = null;
     if (isBeforeStart) {
-      status = 'na'; // before app start
+      status = 'na';
     } else if (isSunday && isPast) {
-      status = 'sunday'; // auto present on Sundays that have passed
-    } else if (record?.checkInTime) {
+      status = 'sunday';
+    } else if (isFullyAttended(record)) {
       status = record.status; // 'present' or 'late'
+    } else if (record?.checkInTime && !record?.checkOutTime && !isToday) {
+      // Checked in but no checkout on a past day = absent
+      status = 'absent';
     } else if (isPast && !isToday && !isSunday) {
       status = 'absent';
-    } else if (isToday && !record?.checkInTime) {
+    } else if (isToday && !isFullyAttended(record)) {
       status = 'today';
     }
 
@@ -83,13 +89,13 @@ function buildCalendarGrid(month, year, records) {
   return days;
 }
 
-// Day cell colors
+// Day cell colors — absent is RED
 function getDayStyle(status, isToday) {
   if (status === 'na')      return 'bg-surface-border/20 text-gray-700';
   if (status === 'sunday')  return 'bg-brand-600/15 border border-brand-600/30 text-brand-600';
   if (status === 'present') return 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300';
   if (status === 'late')    return 'bg-amber-500/15 border border-amber-500/30 text-amber-300';
-  if (status === 'absent')  return 'bg-red-500/10 border border-red-500/20 text-red-400';
+  if (status === 'absent')  return 'bg-red-500/20 border border-red-500/40 text-red-400';
   if (status === 'today')   return isToday ? 'bg-brand-500/15 border border-brand-500/40 text-brand-300 ring-1 ring-brand-500/50' : '';
   return 'bg-surface-card text-gray-400';
 }
@@ -110,6 +116,8 @@ function DayDetailModal({ day, onClose }) {
   const dateLabel = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+
+  const noCheckout = record?.checkInTime && !record?.checkOutTime;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
@@ -140,13 +148,23 @@ function DayDetailModal({ day, onClose }) {
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
             <p className="text-3xl mb-2">😔</p>
             <p className="text-red-400 font-semibold">Absent</p>
-            <p className="text-gray-400 text-xs mt-1">No check-in recorded</p>
+            {noCheckout ? (
+              <>
+                <p className="text-gray-400 text-xs mt-1">Checked in but did not check out</p>
+                <div className="mt-3 bg-surface-DEFAULT rounded-lg p-3">
+                  <p className="text-[10px] text-gray-500 mb-0.5">CHECK IN (recorded)</p>
+                  <p className="font-mono text-sm font-semibold text-emerald-400">{fmt(record.checkInTime)}</p>
+                </div>
+                <p className="text-red-300 text-xs mt-2 font-medium">⚠️ No checkout = Marked Absent</p>
+              </>
+            ) : (
+              <p className="text-gray-400 text-xs mt-1">No check-in recorded</p>
+            )}
           </div>
-        ) : record?.checkInTime ? (
+        ) : isFullyAttended(record) ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <StatusBadge status={record.status} />
-              {record.autoCheckout && <span className="text-xs text-gray-500 bg-gray-500/10 px-2 py-0.5 rounded-full">Auto checkout</span>}
             </div>
             <div className="grid grid-cols-3 gap-3 text-center bg-surface-DEFAULT rounded-xl p-4">
               <div>
@@ -208,7 +226,6 @@ export default function EmployeeHistory() {
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        // BUG FIX: Use actual last day of month, not always 31
         const lastDay = new Date(year, month, 0).getDate();
         const { data } = await api.get('/attendance/history', { params: { month, year, limit: lastDay } });
         setRecords(data.attendance);
@@ -221,7 +238,6 @@ export default function EmployeeHistory() {
     fetchHistory();
   }, [month, year]);
 
-  // Notify once per session when viewing current month and today is a Sunday
   useEffect(() => {
     const today = new Date();
     const isSundayToday = today.getDay() === 0;
@@ -234,23 +250,22 @@ export default function EmployeeHistory() {
 
   const calendarDays = buildCalendarGrid(month, year, records);
 
-  const present = records.filter(r => r.status === 'present').length;
-  const late    = records.filter(r => r.status === 'late').length;
-  const withCheckIn = records.filter(r => r.checkInTime).length;
+  // Count only fully completed days (check-in + check-out) as present/late
+  const present = records.filter(r => isFullyAttended(r) && r.status === 'present').length;
+  const late    = records.filter(r => isFullyAttended(r) && r.status === 'late').length;
+  const withFullAttendance = present + late;
 
-  // Count passed Sundays in this month
   const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
   const passedSundays = calendarDays.filter(d => d && d.isSunday && d.isPast && !d.isBeforeStart).length;
 
   const workingDays = countWorkingDays(month, year);
-  const absent = Math.max(0, workingDays - withCheckIn);
+  const absent = Math.max(0, workingDays - withFullAttendance);
   const validYears = getValidYears();
 
   return (
     <div className="min-h-full bg-surface px-4 pt-6 pb-8 max-w-md mx-auto space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="page-title">Attendance History</h1>
-        {/* View toggle */}
         <div className="flex items-center gap-1 bg-surface-card border border-surface-border rounded-xl p-1">
           <button
             onClick={() => setView('calendar')}
@@ -307,7 +322,6 @@ export default function EmployeeHistory() {
         <div className="card p-4 space-y-3">
           <p className="text-sm font-semibold text-gray-300 text-center">{MONTHS[month - 1]} {year}</p>
 
-          {/* Day name headers */}
           <div className="grid grid-cols-7 gap-1 mb-1">
             {DAY_NAMES.map(d => (
               <div key={d} className={`text-center text-[10px] font-bold py-1 ${d === 'Sun' ? 'text-brand-600' : 'text-gray-500'}`}>
@@ -316,7 +330,6 @@ export default function EmployeeHistory() {
             ))}
           </div>
 
-          {/* Calendar grid */}
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((day, i) => {
               if (!day) return <div key={`empty-${i}`} />;
@@ -373,36 +386,40 @@ export default function EmployeeHistory() {
               <p className="text-gray-400">No records for {MONTHS[month - 1]} {year}</p>
             </div>
           ) : (
-            records.map((r) => (
-              <div key={r._id} className="card p-4 animate-slide-up">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="font-semibold text-white text-sm">
-                      {new Date(r.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-                    </p>
-                    {r.autoCheckout && <p className="text-xs text-gray-500 mt-0.5">Auto checkout</p>}
+            records.map((r) => {
+              const attended = isFullyAttended(r);
+              const noCheckout = r.checkInTime && !r.checkOutTime;
+              return (
+                <div key={r._id} className={`card p-4 animate-slide-up ${!attended ? 'border border-red-500/20' : ''}`}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="font-semibold text-white text-sm">
+                        {new Date(r.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      </p>
+                      {noCheckout && <p className="text-xs text-red-400 mt-0.5">⚠️ No checkout — marked absent</p>}
+                    </div>
+                    <StatusBadge status={attended ? r.status : 'absent'} />
                   </div>
-                  <StatusBadge status={r.checkInTime ? r.status : 'absent'} />
-                </div>
 
-                {r.checkInTime && (
-                  <div className="grid grid-cols-3 gap-2 text-center bg-surface-DEFAULT rounded-xl p-3">
-                    <div>
-                      <p className="text-[10px] text-gray-500 mb-0.5">IN</p>
-                      <p className="font-mono text-xs font-semibold text-emerald-400">{fmt(r.checkInTime)}</p>
+                  {r.checkInTime && (
+                    <div className="grid grid-cols-3 gap-2 text-center bg-surface-DEFAULT rounded-xl p-3">
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-0.5">IN</p>
+                        <p className="font-mono text-xs font-semibold text-emerald-400">{fmt(r.checkInTime)}</p>
+                      </div>
+                      <div className="border-x border-surface-border">
+                        <p className="text-[10px] text-gray-500 mb-0.5">OUT</p>
+                        <p className={`font-mono text-xs font-semibold ${r.checkOutTime ? 'text-amber-400' : 'text-red-400'}`}>{fmt(r.checkOutTime)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-0.5">HOURS</p>
+                        <p className="font-mono text-xs font-semibold text-brand-500">{fmtH(r.workHours)}</p>
+                      </div>
                     </div>
-                    <div className="border-x border-surface-border">
-                      <p className="text-[10px] text-gray-500 mb-0.5">OUT</p>
-                      <p className="font-mono text-xs font-semibold text-amber-400">{fmt(r.checkOutTime)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500 mb-0.5">HOURS</p>
-                      <p className="font-mono text-xs font-semibold text-brand-500">{fmtH(r.workHours)}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}

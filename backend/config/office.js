@@ -5,13 +5,13 @@ module.exports = {
     allowedRadiusMeters: parseInt(process.env.OFFICE_RADIUS_METERS) || 200,
   },
   OFFICE_TIMING: {
-    weekdayStartHour: 11,
-    weekdayStartMinute: 0,
+    // Mon–Fri: late if checked in after 10:45 AM IST (15-minute grace period)
+    weekdayStartHour: 10,
+    weekdayStartMinute: 45,
+    // Saturday: late if checked in after 11:15 AM IST
     saturdayStartHour: 11,
-    saturdayStartMinute: 30,
-    autoCheckoutHour: 20,
-    autoCheckoutMinute: 0,
-    reminderHour: 11,
-    reminderMinute: 0,
+    saturdayStartMinute: 15,
+    reminderHour: 10,
+    reminderMinute: 30,
   },
 };

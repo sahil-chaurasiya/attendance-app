@@ -1,89 +1,61 @@
+const cron = require('node-cron');
+const http = require('http');
+const https = require('https');
 const Attendance = require('../models/Attendance');
-const { getTodayDate } = require('../services/attendanceService');
 
-const autoCheckout = async (req, res) => {
-  try {
-    // Guard: only allow this endpoint to run if it's actually close to 8 PM IST
-    // This prevents accidental calls from checking out everyone at the wrong time
-    const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-    const istHour = nowIST.getUTCHours();
-    const istMinute = nowIST.getUTCMinutes();
-    const totalISTMinutes = istHour * 60 + istMinute;
-    // Allow only between 7:55 PM and 8:05 PM IST (1195–1205 minutes)
-    if (totalISTMinutes < 1195 || totalISTMinutes > 1205) {
-      return res.status(400).json({
-        success: false,
-        message: `Auto-checkout can only run at 8 PM IST. Current IST time: ${String(istHour).padStart(2,'0')}:${String(istMinute).padStart(2,'0')}`,
-      });
-    }
+const DATA_START_DATE = '2026-04-01';
 
-    const today = getTodayDate(); // IST-aware
+// Self-ping to keep Render alive — hits our own /api/health endpoint
+const selfPing = () => {
+  const url = process.env.BACKEND_URL || 'https://attendance-app-backend-z0bq.onrender.com';
+  const fullUrl = `${url}/api/health`;
 
-    // Use IST date parts to build the correct UTC checkout timestamp
-    const checkoutUTC = new Date(Date.UTC(
-      nowIST.getUTCFullYear(),
-      nowIST.getUTCMonth(),
-      nowIST.getUTCDate(),
-      14, 30, 0, 0  // 14:30 UTC = 8:00 PM IST
-    ));
+  const client = fullUrl.startsWith('https') ? https : http;
 
-    // Only update records not already auto-checked-out
-    const result = await Attendance.updateMany(
-      {
-        date: today,
-        checkInTime: { $ne: null },
-        checkOutTime: null,
-        autoCheckout: { $ne: true },
-      },
-      { $set: { checkOutTime: checkoutUTC, autoCheckout: true } }
-    );
+  const req = client.get(fullUrl, (res) => {
+    console.log(`[PING] Self-ping → ${res.statusCode}`);
+    res.resume(); // discard response body
+  });
 
-    // Recalculate work hours for newly modified records
-    // (updateMany bypasses mongoose pre-save middleware)
-    if (result.modifiedCount > 0) {
-      const updated = await Attendance.find({
-        date: today,
-        autoCheckout: true,
-        checkInTime: { $ne: null },
-        checkOutTime: checkoutUTC,
-      });
+  req.on('error', (err) => {
+    console.warn(`[PING] Self-ping failed: ${err.message}`);
+  });
 
-      for (const record of updated) {
-        const diffMs = new Date(record.checkOutTime) - new Date(record.checkInTime);
-        const diffHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
-        await Attendance.updateOne(
-          { _id: record._id },
-          { $set: { workHours: diffHours } }
-        );
+  req.setTimeout(10000, () => {
+    req.destroy();
+    console.warn('[PING] Self-ping timed out');
+  });
+};
+
+const start = () => {
+
+  // ── Keep-alive self-ping every 10 minutes, 8AM–9PM IST (2:30–15:30 UTC) ──
+  cron.schedule('30,40,50 2 * * *', () => {
+    console.log('[PING] Keep-alive ping (early morning window)');
+    selfPing();
+  });
+
+  cron.schedule('*/10 3-14 * * *', () => {
+    console.log('[PING] Keep-alive ping (main window)');
+    selfPing();
+  });
+
+  cron.schedule('0,10,20,30 15 * * *', () => {
+    console.log('[PING] Keep-alive ping (evening window)');
+    selfPing();
+  });
+
+  // ── Cleanup old data on startup ──
+  (async () => {
+    try {
+      const deleted = await Attendance.deleteMany({ date: { $lt: DATA_START_DATE } });
+      if (deleted.deletedCount > 0) {
+        console.log(`[CLEANUP] Removed ${deleted.deletedCount} records before ${DATA_START_DATE}`);
       }
+    } catch (err) {
+      console.error('[CLEANUP] Error removing old records:', err.message);
     }
+  })();
 
-    console.log(`[CRON HTTP] Auto-checkout applied to ${result.modifiedCount} records`);
-    res.json({ success: true, modifiedCount: result.modifiedCount });
-
-  } catch (error) {
-    console.error('[CRON HTTP] Error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
+  console.log('[CRON] Jobs scheduled — keep-alive active 8AM–9PM IST');
 };
-
-// Undo a bad auto-checkout for a specific date (for recovery)
-const undoAutoCheckout = async (req, res) => {
-  try {
-    const { date } = req.body; // YYYY-MM-DD in IST
-    if (!date) return res.status(400).json({ success: false, message: 'date required (YYYY-MM-DD)' });
-
-    const result = await Attendance.updateMany(
-      { date, autoCheckout: true },
-      { $set: { checkOutTime: null, autoCheckout: false, workHours: 0 } }
-    );
-
-    console.log(`[CRON] Undo auto-checkout for ${date}: ${result.modifiedCount} records reverted`);
-    res.json({ success: true, revertedCount: result.modifiedCount });
-  } catch (error) {
-    console.error('[CRON] Undo error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-module.exports = { autoCheckout, undoAutoCheckout };

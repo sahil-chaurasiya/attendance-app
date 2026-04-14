@@ -97,11 +97,8 @@ const checkOut = asyncHandler(async (req, res) => {
 
   const locationCheck = isWithinOffice(parseFloat(latitude), parseFloat(longitude));
   if (!locationCheck.isValid) {
-    // If the employee checked in as WFH today, allow checkout from the same WFH location
-    // without re-checking remaining days (days were already counted on check-in)
     const isCheckedInAsWFH = attendance.notes === 'Work From Home';
     if (!isCheckedInAsWFH) {
-      // Not a WFH day — verify live WFH permission as normal
       const wfhCheck = await checkWFHPermission(req.user._id, parseFloat(latitude), parseFloat(longitude));
       if (!wfhCheck.allowed) {
         return res.status(400).json({
@@ -111,7 +108,6 @@ const checkOut = asyncHandler(async (req, res) => {
         });
       }
     }
-    // else: WFH check-in already validated — allow checkout freely from same home location
   }
 
   const checkOutTime = new Date();
@@ -160,7 +156,6 @@ const getHistory = asyncHandler(async (req, res) => {
   if (month && year) {
     const m = parseInt(month);
     const y = parseInt(year);
-    // BUG FIX: Calculate actual last day of the month instead of always using 31
     const lastDay = new Date(y, m, 0).getDate();
     const startDate = `${y}-${String(m).padStart(2, '0')}-01`;
     const endDate   = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
@@ -216,7 +211,6 @@ const getStats = asyncHandler(async (req, res) => {
   const targetMonth = parseInt(month) || currentDate.getMonth() + 1;
   const targetYear  = parseInt(year)  || currentDate.getFullYear();
 
-  // BUG FIX: Use actual last day of month
   const lastDay = new Date(targetYear, targetMonth, 0).getDate();
   const startDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
   const endDate   = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
@@ -229,10 +223,13 @@ const getStats = asyncHandler(async (req, res) => {
     date: { $gte: effectiveStart, $lte: endDate },
   });
 
-  const present = records.filter((r) => r.status === 'present').length;
-  const late    = records.filter((r) => r.status === 'late').length;
+  // A day only counts as present/late if BOTH check-in AND check-out exist
+  // Records with check-in but no check-out are treated as absent (but record is still kept)
+  const fullyCompleted = records.filter((r) => r.checkInTime && r.checkOutTime);
+  const present = fullyCompleted.filter((r) => r.status === 'present').length;
+  const late    = fullyCompleted.filter((r) => r.status === 'late').length;
   const totalDays = present + late;
-  const totalWorkHours = records.reduce((acc, r) => acc + (r.workHours || 0), 0);
+  const totalWorkHours = fullyCompleted.reduce((acc, r) => acc + (r.workHours || 0), 0);
   const avgWorkHours = totalDays > 0 ? (totalWorkHours / totalDays).toFixed(2) : 0;
 
   const workingDaysElapsed = countWorkingDays(effectiveStart, endDate);
@@ -241,13 +238,13 @@ const getStats = asyncHandler(async (req, res) => {
     ? Math.round((totalDays / workingDaysElapsed) * 100)
     : 0;
 
-  // BUG FIX: Streak should skip Sundays (they are holidays, not breaks in streak)
+  // Streak only counts days with both check-in and check-out
   const sortedRecords = [...records].sort((a, b) => b.date.localeCompare(a.date));
   let streak = 0;
   for (const record of sortedRecords) {
     const dayOfWeek = new Date(record.date + 'T00:00:00Z').getUTCDay();
-    if (dayOfWeek === 0) continue; // skip Sundays — they don't break the streak
-    if (record.checkInTime) streak++;
+    if (dayOfWeek === 0) continue; // skip Sundays
+    if (record.checkInTime && record.checkOutTime) streak++;
     else break;
   }
 

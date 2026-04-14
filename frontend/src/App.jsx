@@ -15,6 +15,7 @@ import WFHRequests from './pages/admin/WFHRequests';
 import AdminLeaveRequests from './pages/admin/LeaveRequests';
 import AdminEmployeeAttendance from './pages/admin/EmployeeAttendance';
 import LoadingScreen from './components/common/LoadingScreen';
+import UpdateNoticeModal from './components/common/UpdateNoticeModal';
 
 const PrivateRoute = ({ children, adminOnly = false, employeeOnly = false }) => {
   const { user, loading } = useAuth();
@@ -30,33 +31,38 @@ export default function App() {
   if (loading) return <LoadingScreen />;
 
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={user ? <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace /> : <LoginPage />}
-      />
+    <>
+      {/* Show update notice to all logged-in users once */}
+      {user && <UpdateNoticeModal />}
 
-      {/* Employee Routes */}
-      <Route path="/" element={<PrivateRoute employeeOnly><EmployeeLayout /></PrivateRoute>}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<EmployeeDashboard />} />
-        <Route path="history"   element={<EmployeeHistory />} />
-        <Route path="leave"     element={<EmployeeLeave />} />
-        <Route path="profile"   element={<EmployeeProfile />} />
-      </Route>
+      <Routes>
+        <Route
+          path="/login"
+          element={user ? <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace /> : <LoginPage />}
+        />
 
-      {/* Admin Routes */}
-      <Route path="/admin" element={<PrivateRoute adminOnly><AdminLayout /></PrivateRoute>}>
-        <Route index                              element={<AdminDashboard />} />
-        <Route path="employees"                   element={<AdminEmployees />} />
-        <Route path="employees/:id/attendance"    element={<AdminEmployeeAttendance />} />
-        <Route path="attendance"                  element={<AdminAttendance />} />
-        <Route path="reports"                     element={<AdminReports />} />
-        <Route path="wfh-requests"                element={<WFHRequests />} />
-        <Route path="leave-requests"              element={<AdminLeaveRequests />} />
-      </Route>
+        {/* Employee Routes */}
+        <Route path="/" element={<PrivateRoute employeeOnly><EmployeeLayout /></PrivateRoute>}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<EmployeeDashboard />} />
+          <Route path="history"   element={<EmployeeHistory />} />
+          <Route path="leave"     element={<EmployeeLeave />} />
+          <Route path="profile"   element={<EmployeeProfile />} />
+        </Route>
 
-      <Route path="*" element={<Navigate to={user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/login'} replace />} />
-    </Routes>
+        {/* Admin Routes */}
+        <Route path="/admin" element={<PrivateRoute adminOnly><AdminLayout /></PrivateRoute>}>
+          <Route index                              element={<AdminDashboard />} />
+          <Route path="employees"                   element={<AdminEmployees />} />
+          <Route path="employees/:id/attendance"    element={<AdminEmployeeAttendance />} />
+          <Route path="attendance"                  element={<AdminAttendance />} />
+          <Route path="reports"                     element={<AdminReports />} />
+          <Route path="wfh-requests"                element={<WFHRequests />} />
+          <Route path="leave-requests"              element={<AdminLeaveRequests />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to={user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/login'} replace />} />
+      </Routes>
+    </>
   );
 }
