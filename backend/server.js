@@ -21,14 +21,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/attendance', require('./routes/attendance'));
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/cron', require('./routes/cron'));
-app.use('/api/wfh', require('./routes/wfh'));
-app.use('/api/leave', require('./routes/leave')); // ← Leave requests
-app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/auth',             require('./routes/auth'));
+app.use('/api/attendance',       require('./routes/attendance'));
+app.use('/api/admin',            require('./routes/admin'));
+app.use('/api/users',            require('./routes/users'));
+app.use('/api/cron',             require('./routes/cron'));
+app.use('/api/wfh',              require('./routes/wfh'));
+app.use('/api/leave',            require('./routes/leave'));
+app.use('/api/regularization',   require('./routes/regularization')); // ← Attendance Regularization
+app.use('/api/notifications',    require('./routes/notifications'));
 
 // Health check
 app.get('/api/health', (req, res) => {

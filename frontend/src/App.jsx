@@ -7,6 +7,7 @@ import EmployeeDashboard from './pages/employee/Dashboard';
 import EmployeeHistory from './pages/employee/History';
 import EmployeeProfile from './pages/employee/Profile';
 import EmployeeLeave from './pages/employee/Leave';
+import EmployeeRegularization from './pages/employee/Regularization';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminEmployees from './pages/admin/Employees';
 import AdminAttendance from './pages/admin/Attendance';
@@ -14,6 +15,7 @@ import AdminReports from './pages/admin/Reports';
 import WFHRequests from './pages/admin/WFHRequests';
 import AdminLeaveRequests from './pages/admin/LeaveRequests';
 import AdminEmployeeAttendance from './pages/admin/EmployeeAttendance';
+import AdminRegularizationRequests from './pages/admin/RegularizationRequests';
 import LoadingScreen from './components/common/LoadingScreen';
 import UpdateNoticeModal from './components/common/UpdateNoticeModal';
 
@@ -44,10 +46,11 @@ export default function App() {
         {/* Employee Routes */}
         <Route path="/" element={<PrivateRoute employeeOnly><EmployeeLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<EmployeeDashboard />} />
-          <Route path="history"   element={<EmployeeHistory />} />
-          <Route path="leave"     element={<EmployeeLeave />} />
-          <Route path="profile"   element={<EmployeeProfile />} />
+          <Route path="dashboard"      element={<EmployeeDashboard />} />
+          <Route path="history"        element={<EmployeeHistory />} />
+          <Route path="leave"          element={<EmployeeLeave />} />
+          <Route path="regularization" element={<EmployeeRegularization />} />
+          <Route path="profile"        element={<EmployeeProfile />} />
         </Route>
 
         {/* Admin Routes */}
@@ -59,6 +62,7 @@ export default function App() {
           <Route path="reports"                     element={<AdminReports />} />
           <Route path="wfh-requests"                element={<WFHRequests />} />
           <Route path="leave-requests"              element={<AdminLeaveRequests />} />
+          <Route path="regularization-requests"     element={<AdminRegularizationRequests />} />
         </Route>
 
         <Route path="*" element={<Navigate to={user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/login'} replace />} />
