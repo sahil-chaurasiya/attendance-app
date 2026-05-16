@@ -140,9 +140,68 @@ function ReviewModal({ request, onClose, onDone }) {
   );
 }
 
+// ─── Delete Confirmation Modal ────────────────────────────────────────────────
+
+function DeleteModal({ request, onClose, onDone }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+
+  const handleDelete = async () => {
+    setLoading(true); setError('');
+    try {
+      await api.delete(`/regularization/requests/${request._id}`);
+      onDone(request._id);
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
+      <div className="bg-surface-card border border-surface-border rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
+        <div className="flex items-start justify-between">
+          <h2 className="text-base font-semibold text-white">Delete Request?</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
+        </div>
+
+        <div className="bg-surface rounded-xl p-3 text-sm space-y-1">
+          <p className="text-gray-300 font-medium">{request.userName}</p>
+          <p className="text-gray-500">{fmtDate(request.date)} · {TYPE_LABEL[request.requestType] || request.requestType}</p>
+          <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full mt-1 ${STATUS_STYLES[request.status]}`}>
+            {request.status}
+          </span>
+        </div>
+
+        <p className="text-xs text-gray-500">This permanently removes the request record. The attendance record itself is <span className="text-gray-300">not</span> affected.</p>
+
+        {error && <p className="text-red-400 text-xs">{error}</p>}
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl border border-surface-border text-gray-400 hover:text-gray-200 text-sm font-medium transition-all disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 text-sm font-medium transition-all disabled:opacity-50"
+          >
+            {loading ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Request Row ──────────────────────────────────────────────────────────────
 
-function RequestRow({ req, onReview }) {
+function RequestRow({ req, onReview, onDelete }) {
   return (
     <div className="bg-surface-card border border-surface-border rounded-2xl p-4">
       <div className="flex items-start justify-between gap-3">
@@ -155,9 +214,21 @@ function RequestRow({ req, onReview }) {
           </div>
           <p className="text-xs text-gray-500 mt-0.5">{req.userEmail}</p>
         </div>
-        <div className="text-right flex-shrink-0">
-          <p className="text-xs text-gray-300 font-medium">{fmtDate(req.date)}</p>
-          <p className="text-[11px] text-gray-500 mt-0.5">{TYPE_LABEL[req.requestType] || req.requestType}</p>
+        <div className="flex items-start gap-2 flex-shrink-0">
+          <div className="text-right">
+            <p className="text-xs text-gray-300 font-medium">{fmtDate(req.date)}</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">{TYPE_LABEL[req.requestType] || req.requestType}</p>
+          </div>
+          {/* Delete button — always visible to admin */}
+          <button
+            onClick={() => onDelete(req)}
+            title="Delete request"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 flex-shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -191,6 +262,7 @@ export default function AdminRegularizationRequests() {
   const [loading, setLoading]       = useState(true);
   const [filterStatus, setFilter]   = useState('pending');
   const [reviewing, setReviewing]   = useState(null);
+  const [deleting, setDeleting]     = useState(null);
   const [error, setError]           = useState('');
 
   const fetchRequests = useCallback(async () => {
@@ -207,6 +279,11 @@ export default function AdminRegularizationRequests() {
   }, [filterStatus]);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  // Remove deleted request from local state immediately (no refetch needed)
+  const handleDeleted = (deletedId) => {
+    setRequests(prev => prev.filter(r => r._id !== deletedId));
+  };
 
   const pendingCount = requests.filter(r => r.status === 'pending').length;
 
@@ -259,7 +336,7 @@ export default function AdminRegularizationRequests() {
       ) : (
         <div className="space-y-3">
           {requests.map(r => (
-            <RequestRow key={r._id} req={r} onReview={setReviewing} />
+            <RequestRow key={r._id} req={r} onReview={setReviewing} onDelete={setDeleting} />
           ))}
         </div>
       )}
@@ -270,6 +347,15 @@ export default function AdminRegularizationRequests() {
           request={reviewing}
           onClose={() => setReviewing(null)}
           onDone={fetchRequests}
+        />
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleting && (
+        <DeleteModal
+          request={deleting}
+          onClose={() => setDeleting(null)}
+          onDone={handleDeleted}
         />
       )}
     </div>

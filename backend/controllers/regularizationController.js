@@ -1,17 +1,20 @@
 const RegularizationRequest = require('../models/RegularizationRequest');
 const Attendance = require('../models/Attendance');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { OFFICE_TIMING } = require('../config/office');
+const { getAttendanceStatus } = require('../services/attendanceService');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Build a Date object from a YYYY-MM-DD string + HH:MM string.
+ * Build a Date object from a YYYY-MM-DD string + HH:MM string,
+ * treating the time as IST (UTC+5:30) and returning a proper UTC Date.
  * Returns null if either part is missing / invalid.
  */
 const buildDateTime = (dateStr, timeStr) => {
   if (!dateStr || !timeStr) return null;
-  const iso = `${dateStr}T${timeStr}:00`;
+  // Append the IST offset so JS parses the wall-clock time the employee entered
+  // as IST, not as server-local (UTC). MongoDB stores the resulting UTC value.
+  const iso = `${dateStr}T${timeStr}:00+05:30`;
   const d = new Date(iso);
   return isNaN(d.getTime()) ? null : d;
 };
@@ -196,17 +199,9 @@ const approveRequest = asyncHandler(async (req, res) => {
     patch.workHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
   }
 
-  // Determine status using the same office timing config as the main attendance controller
+  // Determine status using the shared IST-aware helper (same logic as live check-in)
   if (finalCheckIn) {
-    const checkInDate = new Date(finalCheckIn);
-    const dayOfWeek   = new Date(request.date + 'T00:00:00').getDay(); // 0=Sun,6=Sat
-    const isSaturday  = dayOfWeek === 6;
-    const lateHour    = isSaturday ? OFFICE_TIMING.saturdayStartHour   : OFFICE_TIMING.weekdayStartHour;
-    const lateMin     = isSaturday ? OFFICE_TIMING.saturdayStartMinute : OFFICE_TIMING.weekdayStartMinute;
-    const checkInHour = checkInDate.getHours();
-    const checkInMin  = checkInDate.getMinutes();
-    const isLate      = checkInHour > lateHour || (checkInHour === lateHour && checkInMin > lateMin);
-    patch.status = isLate ? 'late' : 'present';
+    patch.status = getAttendanceStatus(finalCheckIn);
   }
 
   patch.notes = `Regularized: ${request.requestType.replace(/_/g, ' ')} — ${request.reason}`;
@@ -268,6 +263,18 @@ const getPendingCount = asyncHandler(async (req, res) => {
   res.json({ success: true, count });
 });
 
+// @desc  Admin hard-delete a regularization request (any status)
+// @route DELETE /api/regularization/requests/:id
+// @access Private (admin)
+const adminDeleteRequest = asyncHandler(async (req, res) => {
+  const request = await RegularizationRequest.findById(req.params.id);
+  if (!request) {
+    return res.status(404).json({ success: false, message: 'Request not found' });
+  }
+  await request.deleteOne();
+  res.json({ success: true, message: 'Regularization request deleted' });
+});
+
 module.exports = {
   createRequest,
   getMyRequests,
@@ -276,4 +283,5 @@ module.exports = {
   approveRequest,
   rejectRequest,
   getPendingCount,
+  adminDeleteRequest,
 };

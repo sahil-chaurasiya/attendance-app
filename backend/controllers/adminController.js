@@ -1,5 +1,8 @@
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
+const LeaveRequest = require('../models/LeaveRequest');
+const WFHRequest = require('../models/WFHRequest');
+const RegularizationRequest = require('../models/RegularizationRequest');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { getTodayDate } = require('../services/attendanceService');
 const ExcelJS = require('exceljs');
@@ -18,8 +21,10 @@ const getDashboard = asyncHandler(async (req, res) => {
 
   const present   = todayRecords.filter((r) => r.status === 'present').length;
   const late      = todayRecords.filter((r) => r.status === 'late').length;
+  const onLeave   = todayRecords.filter((r) => r.status === 'on_leave').length;
   const checkedIn = todayRecords.filter((r) => r.checkInTime).length;
-  const absent    = totalEmployees - checkedIn;
+  // Absent = everyone who hasn't checked in and is not on approved leave
+  const absent    = totalEmployees - checkedIn - onLeave;
 
   const totalWorkHours = todayRecords.reduce((acc, r) => acc + (r.workHours || 0), 0);
   const avgWorkHours = checkedIn > 0 ? (totalWorkHours / checkedIn).toFixed(2) : 0;
@@ -37,7 +42,7 @@ const getDashboard = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    dashboard: { totalEmployees, present, late, absent, checkedIn, avgWorkHours: parseFloat(avgWorkHours), liveFeed },
+    dashboard: { totalEmployees, present, late, onLeave, absent, checkedIn, avgWorkHours: parseFloat(avgWorkHours), liveFeed },
   });
 });
 
@@ -172,13 +177,42 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   const startDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
   const endDate   = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
+  // Compute working days elapsed (Mon–Sat) for the period
+  const todayIST = (() => {
+    const now = new Date();
+    const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    return ist.toISOString().split('T')[0];
+  })();
+  const effectiveEnd = endDate > todayIST ? todayIST : endDate;
+  let workingDaysInPeriod = 0;
+  const cur = new Date(startDate + 'T00:00:00Z');
+  const end = new Date(effectiveEnd + 'T00:00:00Z');
+  while (cur <= end) {
+    if (cur.getUTCDay() !== 0) workingDaysInPeriod++;
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+
   const records = await Attendance.find({ date: { $gte: startDate, $lte: endDate } })
     .populate('userId', 'name email department');
 
+  // Seed employeeMap with ALL active employees so fully-absent ones still appear
+  const allEmployees = await User.find({ role: 'employee', isActive: true }).lean();
   const employeeMap = {};
+  for (const emp of allEmployees) {
+    employeeMap[emp._id.toString()] = {
+      user: { _id: emp._id, name: emp.name, email: emp.email, department: emp.department },
+      present: 0,
+      late: 0,
+      absent: 0,
+      totalWorkHours: 0,
+      records: [],
+    };
+  }
+
   for (const record of records) {
     if (!record.userId) continue;
     const uid = record.userId._id.toString();
+    // Include deleted employees' records too (they won't be in the seeded map)
     if (!employeeMap[uid]) {
       employeeMap[uid] = { user: record.userId, present: 0, late: 0, absent: 0, totalWorkHours: 0, records: [] };
     }
@@ -186,6 +220,12 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
     else if (record.status === 'late') employeeMap[uid].late++;
     employeeMap[uid].totalWorkHours += record.workHours || 0;
     employeeMap[uid].records.push(record);
+  }
+
+  // Calculate absent days for each employee
+  for (const entry of Object.values(employeeMap)) {
+    const attended = entry.present + entry.late;
+    entry.absent = Math.max(0, workingDaysInPeriod - attended);
   }
 
   const dailyStats = {};
@@ -490,6 +530,9 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   if (user.role === 'admin') return res.status(403).json({ success: false, message: 'Cannot delete an admin account' });
   await User.findByIdAndDelete(req.params.id);
   await Attendance.deleteMany({ userId: req.params.id });
+  await LeaveRequest.deleteMany({ userId: req.params.id });
+  await WFHRequest.deleteMany({ userId: req.params.id });
+  await RegularizationRequest.deleteMany({ userId: req.params.id });
   res.json({ success: true, message: `${user.name} deleted successfully` });
 });
 

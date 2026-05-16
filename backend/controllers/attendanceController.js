@@ -238,14 +238,42 @@ const getStats = asyncHandler(async (req, res) => {
     ? Math.round((totalDays / workingDaysElapsed) * 100)
     : 0;
 
-  // Streak only counts days with both check-in and check-out
-  const sortedRecords = [...records].sort((a, b) => b.date.localeCompare(a.date));
+  // Streak: count consecutive fully-completed working days going backwards from today.
+  // We must detect GAPS between records (absent days have no record at all),
+  // not just bad records. Walk the calendar backwards from today (IST) and stop
+  // as soon as we hit a working day with no completed record.
+  const completedDates = new Set(
+    records
+      .filter((r) => r.checkInTime && r.checkOutTime)
+      .map((r) => r.date)
+  );
+
+  const todayISTForStreak = (() => {
+    const now = new Date();
+    const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    return ist.toISOString().split('T')[0];
+  })();
+
   let streak = 0;
-  for (const record of sortedRecords) {
-    const dayOfWeek = new Date(record.date + 'T00:00:00Z').getUTCDay();
-    if (dayOfWeek === 0) continue; // skip Sundays
-    if (record.checkInTime && record.checkOutTime) streak++;
-    else break;
+  const streakCursor = new Date(todayISTForStreak + 'T00:00:00Z');
+  // Walk backwards up to the start of the effective window
+  const streakFloor = new Date(effectiveStart + 'T00:00:00Z');
+  while (streakCursor >= streakFloor) {
+    const dow = streakCursor.getUTCDay();
+    const dateStr = streakCursor.toISOString().split('T')[0];
+    if (dow === 0) {
+      // Sunday — skip without breaking
+      streakCursor.setUTCDate(streakCursor.getUTCDate() - 1);
+      continue;
+    }
+    // It's a working day — must have a completed record
+    if (completedDates.has(dateStr)) {
+      streak++;
+    } else {
+      // Gap found — stop
+      break;
+    }
+    streakCursor.setUTCDate(streakCursor.getUTCDate() - 1);
   }
 
   res.json({
