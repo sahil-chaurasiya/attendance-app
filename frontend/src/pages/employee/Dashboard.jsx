@@ -15,10 +15,11 @@ function LiveClock() {
   useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t); }, []);
   return (
     <div className="text-center">
-      <p className="font-mono text-5xl font-bold text-white tracking-tight">
+      <p className="font-mono text-[3.25rem] font-bold text-white tracking-tight leading-none"
+        style={{ fontFamily: 'DM Mono, monospace', textShadow: '0 0 40px rgba(245,197,24,0.08)' }}>
         {time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })}
       </p>
-      <p className="text-gray-500 text-sm mt-1">
+      <p className="text-gray-600 text-xs mt-2 tracking-wide">
         {time.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}
       </p>
     </div>
@@ -38,69 +39,79 @@ function LiveWorkTimer({ checkInTime }) {
   const h = Math.floor(elapsed / 3600000);
   const m = Math.floor((elapsed % 3600000) / 60000);
   const s = Math.floor((elapsed % 60000) / 1000);
-  return <span className="font-mono text-brand-500">{String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}</span>;
+  return (
+    <span className="font-mono text-brand-500" style={{ fontFamily: 'DM Mono, monospace' }}>
+      {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}
+    </span>
+  );
 }
 
-// WFH Request Modal
 function WFHRequestModal({ position, onSubmit, onCancel, loading }) {
   const [comment, setComment] = useState('');
   const [days, setDays] = useState(1);
-
-  const locationName = position
-    ? `${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)}`
-    : 'Fetching...';
+  const locationName = position ? `${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)}` : 'Fetching…';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-surface-card border border-surface-border rounded-t-3xl md:rounded-2xl w-full max-w-md p-6 animate-slide-up shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
+      <div
+        className="w-full max-w-md animate-slide-up"
+        style={{
+          background: '#0f0f0f',
+          backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '24px 24px 0 0',
+          boxShadow: '0 -8px 64px rgba(0,0,0,0.7)',
+          padding: '24px',
+        }}
+      >
+        {/* Top drag handle */}
+        <div className="w-10 h-1 rounded-full bg-white/10 mx-auto mb-5" />
+
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-brand-500/20 border border-brand-500/30 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="w-10 h-10 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center">
+            <svg className="w-5 h-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
           </div>
           <div>
-            <h2 className="font-display font-bold text-white text-lg">Work From Home Request</h2>
-            <p className="text-xs text-gray-500">You're outside the office. Request WFH permission.</p>
+            <h2 className="font-display font-bold text-white text-base">Work From Home Request</h2>
+            <p className="text-xs text-gray-500">You're outside the office.</p>
           </div>
         </div>
 
         {/* Location */}
-        <div className="bg-surface border border-surface-border rounded-xl p-3 mb-4">
-          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider font-semibold">Your Current Location</p>
+        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 mb-4">
+          <p className="label mb-1.5">Your Current Location</p>
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <span className="font-mono text-sm text-gray-200">{locationName}</span>
+            <span className="font-mono text-xs text-gray-300">{locationName}</span>
           </div>
-          {position?.accuracy && (
-            <p className="text-xs text-gray-600 mt-1">Accuracy: ±{Math.round(position.accuracy)}m</p>
-          )}
+          {position?.accuracy && <p className="text-[10px] text-gray-700 mt-1">Accuracy: ±{Math.round(position.accuracy)}m</p>}
         </div>
 
-        {/* Days */}
+        {/* Days selector */}
         <div className="mb-4">
-          <label className="label block mb-2">Number of Days for This Location</label>
+          <label className="label block mb-2">Number of Days</label>
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setDays(d => Math.max(1, d - 1))}
-              className="w-10 h-10 rounded-xl border border-surface-border bg-surface flex items-center justify-center text-gray-300 hover:border-brand-500/50 hover:text-brand-500 transition-all font-bold text-lg"
+              className="w-10 h-10 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-gray-300 hover:border-brand-500/40 hover:text-brand-500 transition-all font-bold text-lg"
             >−</button>
             <div className="flex-1 text-center">
               <span className="font-display font-bold text-3xl text-brand-500">{days}</span>
-              <span className="text-gray-500 text-sm ml-2">{days === 1 ? 'day' : 'days'}</span>
+              <span className="text-gray-600 text-sm ml-2">{days === 1 ? 'day' : 'days'}</span>
             </div>
             <button
               type="button"
               onClick={() => setDays(d => Math.min(30, d + 1))}
-              className="w-10 h-10 rounded-xl border border-surface-border bg-surface flex items-center justify-center text-gray-300 hover:border-brand-500/50 hover:text-brand-500 transition-all font-bold text-lg"
+              className="w-10 h-10 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-gray-300 hover:border-brand-500/40 hover:text-brand-500 transition-all font-bold text-lg"
             >+</button>
           </div>
-          <p className="text-xs text-gray-600 text-center mt-1">Admin can adjust this after reviewing</p>
         </div>
 
         {/* Comment */}
@@ -109,27 +120,21 @@ function WFHRequestModal({ position, onSubmit, onCancel, loading }) {
           <textarea
             value={comment}
             onChange={e => setComment(e.target.value)}
-            placeholder="e.g. Working from home due to travel..."
+            placeholder="e.g. Working from home due to travel…"
             rows={2}
-            className="input resize-none"
+            className="input"
           />
         </div>
 
-        {/* Actions */}
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="btn-secondary flex-1"
-            disabled={loading}
-          >Cancel</button>
+          <button type="button" onClick={onCancel} className="btn-secondary flex-1" disabled={loading}>Cancel</button>
           <button
             type="button"
             onClick={() => onSubmit({ comment, days, latitude: position?.latitude, longitude: position?.longitude, accuracy: position?.accuracy })}
             disabled={loading || !position}
             className="btn-primary flex-1 flex items-center justify-center gap-2"
           >
-            {loading ? <Spinner size="sm" /> : (
+            {loading ? <Spinner size="sm" className="text-black" /> : (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
@@ -142,35 +147,37 @@ function WFHRequestModal({ position, onSubmit, onCancel, loading }) {
   );
 }
 
-// WFH pending banner
 function WFHPendingBanner({ request }) {
   if (!request) return null;
   return (
-    <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3 flex items-start gap-3">
-      <svg className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
+    <div className="bg-amber-500/[0.07] border border-amber-500/20 rounded-xl p-3.5 flex items-start gap-3">
+      <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
       <div>
-        <p className="text-sm font-semibold text-amber-400">WFH Request Pending</p>
-        <p className="text-xs text-gray-500 mt-0.5">Waiting for admin approval. Check back soon.</p>
+        <p className="text-sm font-semibold text-amber-400 font-display">WFH Request Pending</p>
+        <p className="text-xs text-gray-600 mt-0.5">Waiting for admin approval.</p>
       </div>
     </div>
   );
 }
 
-// WFH approved banner
 function WFHApprovedBanner({ permission }) {
   if (!permission) return null;
   const remaining = permission.remainingDays ?? permission.daysAllowed;
   if (remaining <= 0) return null;
   return (
-    <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3 flex items-start gap-3">
-      <svg className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
+    <div className="bg-emerald-500/[0.07] border border-emerald-500/20 rounded-xl p-3.5 flex items-start gap-3">
+      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
       <div>
-        <p className="text-sm font-semibold text-emerald-400">WFH Approved ✓</p>
-        <p className="text-xs text-gray-500 mt-0.5">{remaining} day{remaining !== 1 ? 's' : ''} remaining from this location</p>
+        <p className="text-sm font-semibold text-emerald-400 font-display">WFH Approved ✓</p>
+        <p className="text-xs text-gray-600 mt-0.5">{remaining} day{remaining !== 1 ? 's' : ''} remaining</p>
       </div>
     </div>
   );
@@ -184,7 +191,6 @@ export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // WFH state
   const [showWFHModal, setShowWFHModal] = useState(false);
   const [wfhPosition, setWFHPosition] = useState(null);
   const [wfhSubmitting, setWFHSubmitting] = useState(false);
@@ -206,11 +212,8 @@ export default function EmployeeDashboard() {
       ]);
       setAttendance(todayRes.data.attendance);
       setStats(statsRes.data.stats);
-    } catch (err) {
-      toast.error('Failed to load attendance data');
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error('Failed to load attendance data'); }
+    finally { setLoading(false); }
   }, []);
 
   const fetchWFHStatus = useCallback(async () => {
@@ -218,44 +221,29 @@ export default function EmployeeDashboard() {
       const { data } = await api.get('/wfh/my-status');
       setPendingWFHRequest(data.pendingRequest || null);
       setActiveWFHPermission(data.activePermission || null);
-    } catch {
-      // WFH endpoint may not exist yet — silently ignore
-    }
+    } catch {}
   }, []);
 
-  useEffect(() => {
-    fetchData();
-    fetchWFHStatus();
-  }, [fetchData, fetchWFHStatus]);
+  useEffect(() => { fetchData(); fetchWFHStatus(); }, [fetchData, fetchWFHStatus]);
 
-  // Check-in: detect if outside office and show WFH popup
   const handleCheckIn = async () => {
     setActionLoading(true);
     try {
       const position = await getPosition();
       const { data } = await api.post('/attendance/checkin', { latitude: position.latitude, longitude: position.longitude });
       toast.success(data.message);
-      enablePushNotifications(); // subscribe device to push on first check-in
+      enablePushNotifications();
       notifyCheckIn(data.attendance?.userId?.name || 'You', data.attendance?.status);
       await fetchData();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Check-in failed';
-      // If outside office location — offer WFH request
       if (msg.toLowerCase().includes('outside') || msg.toLowerCase().includes('location')) {
-        // fetch position for WFH modal
-        try {
-          const pos = await getPosition();
-          setWFHPosition(pos);
-        } catch {
-          setWFHPosition(null);
-        }
+        try { const pos = await getPosition(); setWFHPosition(pos); } catch { setWFHPosition(null); }
         setShowWFHModal(true);
       } else {
         toast.error(msg);
       }
-    } finally {
-      setActionLoading(false);
-    }
+    } finally { setActionLoading(false); }
   };
 
   const handleCheckOut = async () => {
@@ -265,11 +253,8 @@ export default function EmployeeDashboard() {
       const { data } = await api.post('/attendance/checkout', { latitude: position.latitude, longitude: position.longitude });
       toast.success(data.message);
       await fetchData();
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Check-out failed');
-    } finally {
-      setActionLoading(false);
-    }
+    } catch (err) { toast.error(err.response?.data?.message || err.message || 'Check-out failed'); }
+    finally { setActionLoading(false); }
   };
 
   const handleWFHSubmit = async ({ comment, days, latitude, longitude, accuracy }) => {
@@ -279,11 +264,8 @@ export default function EmployeeDashboard() {
       toast.success('WFH request sent to admin!');
       setShowWFHModal(false);
       await fetchWFHStatus();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send WFH request');
-    } finally {
-      setWFHSubmitting(false);
-    }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to send WFH request'); }
+    finally { setWFHSubmitting(false); }
   };
 
   const checkedIn  = !!attendance?.checkInTime;
@@ -292,8 +274,7 @@ export default function EmployeeDashboard() {
   const canCheckOut = checkedIn && !checkedOut;
 
   return (
-    <div className="min-h-full bg-surface px-4 pt-6 pb-8 max-w-md mx-auto space-y-5 animate-fade-in">
-      {/* WFH Modal */}
+    <div className="min-h-full bg-surface px-4 pt-6 pb-8 max-w-md mx-auto space-y-4 animate-fade-in">
       {showWFHModal && (
         <WFHRequestModal
           position={wfhPosition}
@@ -304,10 +285,13 @@ export default function EmployeeDashboard() {
       )}
 
       {/* Greeting */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between animate-slide-up">
         <div>
-          <p className="text-gray-500 text-sm">{greet()},</p>
-          <h1 className="font-display font-bold text-2xl text-white">{user?.name?.split(' ')[0]} 👋</h1>
+          <p className="text-gray-600 text-sm">{greet()},</p>
+          <h1 className="font-display font-bold text-2xl text-white mt-0.5">
+            {user?.name?.split(' ')[0]}
+            <span className="ml-2 text-xl">👋</span>
+          </h1>
         </div>
         {attendance && <StatusBadge status={attendance.status} />}
       </div>
@@ -317,42 +301,61 @@ export default function EmployeeDashboard() {
       {activeWFHPermission && <WFHApprovedBanner permission={activeWFHPermission} />}
 
       {/* Clock card */}
-      <div className="card p-6 text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-radial from-brand-500/5 to-transparent pointer-events-none" />
+      <div
+        className="rounded-2xl p-6 text-center relative overflow-hidden animate-slide-up"
+        style={{
+          background: '#0f0f0f',
+          backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 8px 32px rgba(0,0,0,0.4)',
+          animationDelay: '0.05s',
+        }}
+      >
+        {/* Ambient glow behind clock */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(245,197,24,0.03) 0%, transparent 70%)' }}
+        />
+        <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+
         <LiveClock />
 
         {checkedIn && !checkedOut && (
-          <div className="mt-4 inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-4 py-1.5">
+          <div className="mt-4 inline-flex items-center gap-2 bg-emerald-500/[0.08] border border-emerald-500/20 rounded-full px-4 py-1.5">
             <span className="glow-dot" />
             <span className="text-sm text-emerald-400 font-medium">Working · <LiveWorkTimer checkInTime={attendance.checkInTime} /></span>
           </div>
         )}
         {checkedOut && (
-          <div className="mt-4 inline-flex items-center gap-2 bg-gray-500/10 border border-gray-500/20 rounded-full px-4 py-1.5">
+          <div className="mt-4 inline-flex items-center gap-2 bg-white/[0.04] border border-white/[0.06] rounded-full px-4 py-1.5">
             <span className="text-sm text-gray-400 font-medium">Done · {fmtHours(attendance.workHours)}</span>
           </div>
         )}
       </div>
 
-      {/* Check In / Out button */}
+      {/* Action buttons */}
       {loading ? (
-        <div className="flex justify-center py-4"><Spinner size="lg" /></div>
+        <div className="flex justify-center py-6"><Spinner size="lg" className="text-brand-500" /></div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3" style={{ animationDelay: '0.1s' }}>
           {canCheckIn && (
             <button
               onClick={handleCheckIn}
               disabled={actionLoading || geoLoading}
-              className="w-full py-5 rounded-2xl bg-brand-500 hover:bg-brand-600
-                         text-black font-display font-bold text-xl shadow-glow hover:shadow-glow-lg
-                         transition-all duration-300 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed
-                         flex items-center justify-center gap-3"
+              className="w-full py-5 rounded-2xl text-black font-display font-bold text-xl
+                         transition-all duration-300 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed
+                         flex items-center justify-center gap-3 relative overflow-hidden"
+              style={{
+                background: 'linear-gradient(135deg, #F5C518 0%, #e6b800 50%, #F5C518 100%)',
+                backgroundSize: '200% auto',
+                boxShadow: '0 0 0 1px rgba(245,197,24,0.3), 0 8px 24px rgba(245,197,24,0.25), 0 1px 0 rgba(255,255,255,0.2) inset',
+              }}
             >
               {actionLoading || geoLoading ? (
-                <><Spinner size="md" /> Getting location…</>
+                <><Spinner size="md" className="text-black" /> Getting location…</>
               ) : (
                 <>
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                   </svg>
                   Check In
@@ -365,16 +368,20 @@ export default function EmployeeDashboard() {
             <button
               onClick={handleCheckOut}
               disabled={actionLoading || geoLoading}
-              className="w-full py-5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20
-                         text-white font-display font-bold text-xl
-                         transition-all duration-300 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed
+              className="w-full py-5 rounded-2xl text-white font-display font-bold text-xl
+                         transition-all duration-300 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed
                          flex items-center justify-center gap-3"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                boxShadow: '0 1px 0 rgba(255,255,255,0.05) inset',
+              }}
             >
               {actionLoading || geoLoading ? (
                 <><Spinner size="md" /> Getting location…</>
               ) : (
                 <>
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
                   Check Out
@@ -384,14 +391,17 @@ export default function EmployeeDashboard() {
           )}
 
           {checkedOut && (
-            <div className="card p-5 text-center">
-              <div className="w-12 h-12 rounded-full bg-brand-500/20 flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="card p-5 text-center animate-scale-in">
+              <div
+                className="w-10 h-10 rounded-full bg-brand-500/10 border border-brand-500/20 flex items-center justify-center mx-auto mb-3"
+                style={{ boxShadow: '0 0 16px rgba(245,197,24,0.1)' }}
+              >
+                <svg className="w-5 h-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <p className="font-semibold text-white">Day Complete!</p>
-              <p className="text-gray-500 text-sm mt-1">See you tomorrow 🎉</p>
+              <p className="font-display font-semibold text-white">Day Complete!</p>
+              <p className="text-gray-600 text-xs mt-1">See you tomorrow 🎉</p>
             </div>
           )}
         </div>
@@ -399,20 +409,27 @@ export default function EmployeeDashboard() {
 
       {/* Today's timing */}
       {attendance && (
-        <div className="card p-4">
+        <div
+          className="rounded-2xl p-4 animate-fade-in"
+          style={{
+            background: '#0f0f0f',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 60%)',
+            border: '1px solid rgba(255,255,255,0.05)',
+          }}
+        >
           <p className="label mb-3">Today's Timing</p>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="text-center">
-              <p className="text-xs text-gray-600 mb-1">Check In</p>
-              <p className="font-mono font-semibold text-emerald-400 text-sm">{fmt(attendance.checkInTime)}</p>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <p className="text-[10px] text-gray-700 mb-1.5">Check In</p>
+              <p className="font-mono text-emerald-400 text-sm font-medium">{fmt(attendance.checkInTime)}</p>
             </div>
-            <div className="text-center border-x border-surface-border">
-              <p className="text-xs text-gray-600 mb-1">Check Out</p>
-              <p className="font-mono font-semibold text-gray-400 text-sm">{fmt(attendance.checkOutTime)}</p>
+            <div style={{ borderLeft: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+              <p className="text-[10px] text-gray-700 mb-1.5">Check Out</p>
+              <p className="font-mono text-gray-500 text-sm font-medium">{fmt(attendance.checkOutTime)}</p>
             </div>
-            <div className="text-center">
-              <p className="text-xs text-gray-600 mb-1">Work Hours</p>
-              <p className="font-mono font-semibold text-brand-500 text-sm">{fmtHours(attendance.workHours)}</p>
+            <div>
+              <p className="text-[10px] text-gray-700 mb-1.5">Work Hours</p>
+              <p className="font-mono text-brand-500 text-sm font-medium">{fmtHours(attendance.workHours)}</p>
             </div>
           </div>
         </div>
@@ -420,30 +437,39 @@ export default function EmployeeDashboard() {
 
       {/* Monthly stats */}
       {stats && (
-        <div>
+        <div className="animate-fade-in" style={{ animationDelay: '0.15s' }}>
           <p className="label mb-3">This Month</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 stagger">
+            {/* Attendance % */}
             <div className="stat-card">
-              <p className="text-xs text-gray-500">Attendance</p>
+              <p className="text-[10px] text-gray-600">Attendance</p>
               <p className="text-3xl font-display font-bold text-gradient">{stats.attendancePercent}%</p>
-              <div className="w-full bg-surface-border rounded-full h-1.5 mt-1">
-                <div className="bg-brand-500 h-1.5 rounded-full transition-all duration-700" style={{ width: `${stats.attendancePercent}%` }} />
+              <div className="w-full rounded-full h-1" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <div
+                  className="h-1 rounded-full transition-all duration-700"
+                  style={{ width: `${stats.attendancePercent}%`, background: 'linear-gradient(90deg, #F5C518, #e6b800)' }}
+                />
               </div>
             </div>
+            {/* Streak */}
             <div className="stat-card">
-              <p className="text-xs text-gray-500">On-time Streak</p>
-              <p className="text-3xl font-display font-bold text-white">{stats.streak} <span className="text-lg">🔥</span></p>
-              <p className="text-xs text-gray-600">consecutive days</p>
+              <p className="text-[10px] text-gray-600">On-time Streak</p>
+              <p className="text-3xl font-display font-bold text-white">
+                {stats.streak} <span className="text-xl">🔥</span>
+              </p>
+              <p className="text-[10px] text-gray-700">consecutive days</p>
             </div>
+            {/* Present */}
             <div className="stat-card">
-              <p className="text-xs text-gray-500">Present</p>
+              <p className="text-[10px] text-gray-600">Present</p>
               <p className="text-2xl font-display font-bold text-emerald-400">{stats.present}</p>
-              <p className="text-xs text-gray-600">days</p>
+              <p className="text-[10px] text-gray-700">days</p>
             </div>
+            {/* Late */}
             <div className="stat-card">
-              <p className="text-xs text-gray-500">Late</p>
+              <p className="text-[10px] text-gray-600">Late</p>
               <p className="text-2xl font-display font-bold text-amber-400">{stats.late}</p>
-              <p className="text-xs text-gray-600">days</p>
+              <p className="text-[10px] text-gray-700">days</p>
             </div>
           </div>
         </div>

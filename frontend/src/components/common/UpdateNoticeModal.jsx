@@ -7,9 +7,7 @@ export default function UpdateNoticeModal() {
 
   useEffect(() => {
     const seen = localStorage.getItem(NOTICE_KEY);
-    if (!seen) {
-      setVisible(true);
-    }
+    if (!seen) setVisible(true);
   }, []);
 
   const handleClose = () => {
@@ -19,90 +17,86 @@ export default function UpdateNoticeModal() {
 
   if (!visible) return null;
 
+  const updates = [
+    {
+      icon: '🏖️',
+      color: 'emerald',
+      title: 'Leave requests',
+      desc: (
+        <>Leave requests can now be submitted from the{' '}<span className="text-white font-semibold">Leave</span> tab.</>
+      ),
+    },
+    {
+      icon: '⏱️',
+      color: 'red',
+      title: 'Checkout required',
+      desc: 'Checkout is required to record attendance. Days without a checkout will not be counted as present. Automatic checkout has been removed.',
+    },
+    {
+      icon: '🕒',
+      color: 'amber',
+      title: 'Late arrival time updated',
+      desc: (
+        <>The late arrival threshold is now{' '}<span className="text-white font-semibold">10:45 AM</span>{' '}(Monday through Friday). Previously it was 11:00 AM.</>
+      ),
+    },
+  ];
+
+  const colorMap = {
+    emerald: { bg: 'bg-emerald-500/[0.07]', border: 'border-emerald-500/20', text: 'text-emerald-400' },
+    red:     { bg: 'bg-red-500/[0.07]',     border: 'border-red-500/20',     text: 'text-red-400'     },
+    amber:   { bg: 'bg-amber-500/[0.07]',   border: 'border-amber-500/20',   text: 'text-amber-400'   },
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6">
       <div
-        className="bg-surface-card border border-surface-border rounded-t-2xl sm:rounded-2xl w-full max-w-[95vw] sm:max-w-md md:max-w-lg p-4 sm:p-6 animate-slide-up"
+        className="bg-[#0f0f0f] border border-white/[0.08] rounded-t-3xl sm:rounded-2xl w-full max-w-[95vw] sm:max-w-md md:max-w-lg animate-slide-up shadow-elevated"
         style={{
           paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 1.5rem)',
           maxHeight: 'min(90dvh, 700px)',
           overflowY: 'auto',
+          backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%)',
         }}
       >
-        {/* Header */}
-        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand-500/20 flex items-center justify-center shrink-0">
-            <span className="text-lg sm:text-xl">📋</span>
+        <div className="p-5 sm:p-6">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-5 sm:mb-6">
+            <div className="w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/20 flex items-center justify-center shrink-0">
+              <span className="text-lg">📋</span>
+            </div>
+            <div>
+              <p className="text-white font-display font-bold text-base leading-tight">What's New</p>
+              <p className="text-gray-500 text-xs mt-0.5 font-mono">April 2026</p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-white font-display font-bold text-sm sm:text-base leading-tight">
-              App Update
-            </p>
-            <p className="text-gray-400 text-[10px] sm:text-xs mt-0.5">
-              April 2026
-            </p>
+
+          {/* Update items */}
+          <div className="space-y-2.5 sm:space-y-3 mb-5 sm:mb-6">
+            {updates.map(({ icon, color, title, desc }) => {
+              const c = colorMap[color];
+              return (
+                <div key={title} className={`${c.bg} border ${c.border} rounded-xl p-3.5 sm:p-4`}>
+                  <div className="flex items-start gap-3">
+                    <span className="text-base sm:text-lg shrink-0 mt-0.5">{icon}</span>
+                    <div>
+                      <p className={`${c.text} font-semibold text-xs sm:text-sm font-display`}>{title}</p>
+                      <p className="text-gray-400 text-[11px] sm:text-xs mt-1 leading-relaxed">{desc}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
+
+          {/* CTA */}
+          <button
+            onClick={handleClose}
+            className="btn-primary w-full py-3 text-sm"
+          >
+            Got it
+          </button>
         </div>
-
-        {/* Update items */}
-        <div className="space-y-2.5 sm:space-y-3 mb-4 sm:mb-5">
-          {/* Leave Requests */}
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4">
-            <div className="flex items-start gap-2 sm:gap-3">
-              <span className="text-base sm:text-lg shrink-0">🏖️</span>
-              <div>
-                <p className="text-emerald-400 font-semibold text-xs sm:text-sm">
-                  Leave requests
-                </p>
-                <p className="text-gray-300 text-[10px] sm:text-xs mt-1 leading-relaxed">
-                  Leave requests can now be submitted from the{' '}
-                  <span className="text-white font-semibold">Leave</span> tab.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Checkout */}
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4">
-            <div className="flex items-start gap-2 sm:gap-3">
-              <span className="text-base sm:text-lg shrink-0">⏱️</span>
-              <div>
-                <p className="text-red-400 font-semibold text-xs sm:text-sm">
-                  Checkout required
-                </p>
-                <p className="text-gray-300 text-[10px] sm:text-xs mt-1 leading-relaxed">
-                  Checkout is required to record attendance. Days without a checkout
-                  will not be counted as present. Automatic checkout has been removed.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Late threshold */}
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4">
-            <div className="flex items-start gap-2 sm:gap-3">
-              <span className="text-base sm:text-lg shrink-0">🕒</span>
-              <div>
-                <p className="text-amber-400 font-semibold text-xs sm:text-sm">
-                  Late arrival time updated
-                </p>
-                <p className="text-gray-300 text-[10px] sm:text-xs mt-1 leading-relaxed">
-                  The late arrival threshold is now{' '}
-                  <span className="text-white font-semibold">10:45 AM</span>{' '}
-                  (Monday through Friday). Previously it was 11:00 AM.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <button
-          onClick={handleClose}
-          className="w-full py-2.5 sm:py-3 rounded-xl bg-brand-500 hover:bg-brand-600 active:scale-95 text-white font-semibold text-xs sm:text-sm transition-all touch-manipulation"
-        >
-          Got it
-        </button>
       </div>
     </div>
   );

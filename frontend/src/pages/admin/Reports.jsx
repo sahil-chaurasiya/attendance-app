@@ -12,7 +12,7 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-surface-card border border-surface-border rounded-xl p-3 shadow-card text-xs">
+    <div className="bg-[#0f0f0f] border border-white/[0.06] rounded-xl p-3 shadow-card text-xs">
       <p className="text-gray-300 font-semibold mb-1">{label}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }}>{p.name}: {p.value}</p>
@@ -103,11 +103,11 @@ export default function AdminReports() {
 
           {/* Daily trend chart */}
           {dailyData.length > 0 && (
-            <div className="card p-5">
+            <div className="rounded-2xl p-5">
               <p className="section-title mb-5">Daily Attendance Trend</p>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={dailyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#222222" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                   <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} />
                   <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
@@ -121,11 +121,11 @@ export default function AdminReports() {
 
           {/* Employee work hours chart */}
           {empData.length > 0 && (
-            <div className="card p-5">
+            <div className="rounded-2xl p-5">
               <p className="section-title mb-5">Employee Work Hours (Top 10)</p>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={empData} layout="vertical" margin={{ top: 0, right: 10, left: 20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#222222" horizontal={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
                   <XAxis type="number" tick={{ fill: '#64748b', fontSize: 11 }} />
                   <YAxis dataKey="name" type="category" tick={{ fill: '#94a3b8', fontSize: 12 }} width={70} />
                   <Tooltip content={<CustomTooltip />} />
@@ -136,21 +136,21 @@ export default function AdminReports() {
           )}
 
           {/* Employee breakdown table */}
-          <div className="card overflow-hidden">
-            <div className="p-4 border-b border-surface-border">
+          <div className="rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-white/[0.05]">
               <p className="section-title">Employee Breakdown — {MONTHS[month - 1]} {year}</p>
               <p className="text-xs text-gray-500 mt-0.5">Working days this month: {workingDaysInMonth} (Mon–Sat)</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-surface-border bg-surface-DEFAULT">
+                  <tr className="border-b border-white/[0.05] bg-white/[0.02]">
                     {['Employee', 'Department', 'Present', 'Late', 'Total Work Hours', 'Attendance %'].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-surface-border">
+                <tbody className="divide-y divide-white/[0.04]">
                   {(report.employees || []).length === 0 && (
                     <tr><td colSpan={6} className="text-center py-10 text-gray-400">No data</td></tr>
                   )}
@@ -159,7 +159,7 @@ export default function AdminReports() {
                     // BUG FIX: Use calculated working days, not hardcoded 26
                     const pct = total > 0 ? Math.round((total / Math.max(1, workingDaysInMonth)) * 100) : 0;
                     return (
-                      <tr key={i} className="hover:bg-surface-hover transition-colors">
+                      <tr key={i} className="hover:bg-white/[0.03] transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-200">{e.user?.name || '—'}</td>
                         <td className="px-4 py-3 text-gray-400 text-xs">{e.user?.department || '—'}</td>
                         <td className="px-4 py-3 text-emerald-400 font-semibold">{e.present}</td>

@@ -24,11 +24,8 @@ export default function EmployeeProfile() {
       updateUser(data.user);
       toast.success('Profile updated!');
       setEditing(false);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Update failed');
-    } finally {
-      setSaving(false);
-    }
+    } catch (err) { toast.error(err.response?.data?.message || 'Update failed'); }
+    finally { setSaving(false); }
   };
 
   const handleChangePassword = async () => {
@@ -40,57 +37,112 @@ export default function EmployeeProfile() {
       toast.success('Password changed successfully!');
       setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setChangingPw(false);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Password change failed');
-    } finally {
-      setSavingPw(false);
-    }
+    } catch (err) { toast.error(err.response?.data?.message || 'Password change failed'); }
+    finally { setSavingPw(false); }
   };
 
   const initials = user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
   return (
-    <div className="min-h-full bg-surface px-4 pt-6 pb-8 max-w-md mx-auto space-y-5 animate-fade-in">
-      <h1 className="page-title">Profile</h1>
+    <div className="min-h-full bg-surface px-4 pt-6 pb-8 max-w-md mx-auto space-y-4 animate-fade-in">
+      <h1 className="page-title animate-slide-up">Profile</h1>
 
-      {/* Avatar & info */}
-      <div className="card p-6 text-center">
-        <div className="w-20 h-20 rounded-full bg-brand-500/20 border-2 border-brand-500/40 flex items-center justify-center mx-auto mb-4 text-2xl font-display font-bold text-brand-300">
+      {/* Avatar card */}
+      <div
+        className="rounded-2xl p-6 text-center relative overflow-hidden animate-slide-up"
+        style={{
+          background: '#0f0f0f',
+          backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          animationDelay: '0.05s',
+        }}
+      >
+        <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+
+        {/* Avatar */}
+        <div
+          className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-display font-bold text-black"
+          style={{
+            background: 'linear-gradient(135deg, #F5C518, #e6b800)',
+            boxShadow: '0 0 0 4px rgba(245,197,24,0.1), 0 0 0 8px rgba(245,197,24,0.04)',
+          }}
+        >
           {initials}
         </div>
+
         <h2 className="font-display font-bold text-xl text-white">{user?.name}</h2>
-        <p className="text-gray-400 text-sm">{user?.email}</p>
-        <div className="flex items-center justify-center gap-2 mt-2">
-          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${user?.role === 'admin' ? 'bg-brand-600/15 text-brand-600 border border-brand-600/20' : 'bg-brand-500/15 text-brand-500 border border-brand-500/20'}`}>
+        <p className="text-gray-600 text-sm mt-0.5">{user?.email}</p>
+
+        <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
+          <span
+            className="px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{
+              background: 'rgba(245,197,24,0.08)',
+              border: '1px solid rgba(245,197,24,0.2)',
+              color: '#F5C518',
+            }}
+          >
             {user?.role === 'admin' ? '⚡ Admin' : '👤 Employee'}
           </span>
-          {user?.department && <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-500/15 text-gray-400 border border-gray-500/20">{user.department}</span>}
+          {user?.department && (
+            <span
+              className="px-2.5 py-1 rounded-full text-xs font-medium"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}
+            >
+              {user.department}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Edit profile */}
-      <div className="card p-5 space-y-4">
+      {/* Personal info card */}
+      <div
+        className="rounded-2xl p-5 space-y-4 animate-slide-up"
+        style={{
+          background: '#0f0f0f',
+          backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 60%)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          animationDelay: '0.08s',
+        }}
+      >
         <div className="flex items-center justify-between">
           <p className="section-title">Personal Info</p>
-          <button onClick={() => setEditing(!editing)} className="text-xs text-brand-500 hover:text-brand-300 font-semibold">
+          <button
+            onClick={() => setEditing(!editing)}
+            className="text-xs font-medium transition-colors px-3 py-1.5 rounded-lg"
+            style={{ color: editing ? '#9ca3af' : '#F5C518', background: editing ? 'rgba(255,255,255,0.04)' : 'rgba(245,197,24,0.08)' }}
+          >
             {editing ? 'Cancel' : 'Edit'}
           </button>
         </div>
 
         {editing ? (
           <div className="space-y-3">
-            <div><label className="label mb-1.5 block">Full Name</label><input className="input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
-            <div><label className="label mb-1.5 block">Phone</label><input className="input" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="+91 98765 43210" /></div>
-            <div><label className="label mb-1.5 block">Department</label><input className="input" value={form.department} onChange={e => setForm({...form, department: e.target.value})} placeholder="Engineering" /></div>
+            <div>
+              <label className="label block mb-1.5">Full Name</label>
+              <input className="input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+            </div>
+            <div>
+              <label className="label block mb-1.5">Phone</label>
+              <input className="input" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="+91 98765 43210" />
+            </div>
+            <div>
+              <label className="label block mb-1.5">Department</label>
+              <input className="input" value={form.department} onChange={e => setForm({...form, department: e.target.value})} placeholder="Engineering" />
+            </div>
             <button onClick={handleSaveProfile} disabled={saving} className="btn-primary w-full flex items-center justify-center gap-2">
-              {saving ? <><Spinner size="sm" /> Saving…</> : 'Save Changes'}
+              {saving ? <><Spinner size="sm" className="text-black" /> Saving…</> : 'Save Changes'}
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-0.5">
             {[['Name', user?.name], ['Email', user?.email], ['Phone', user?.phone || '—'], ['Department', user?.department || '—']].map(([k, v]) => (
-              <div key={k} className="flex justify-between items-center py-2 border-b border-surface-border last:border-0">
-                <span className="text-sm text-gray-400">{k}</span>
+              <div
+                key={k}
+                className="flex justify-between items-center py-2.5"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+              >
+                <span className="text-sm text-gray-600">{k}</span>
                 <span className="text-sm text-gray-200 font-medium">{v}</span>
               </div>
             ))}
@@ -98,35 +150,68 @@ export default function EmployeeProfile() {
         )}
       </div>
 
-      {/* Change password */}
-      <div className="card p-5 space-y-4">
+      {/* Security card */}
+      <div
+        className="rounded-2xl p-5 space-y-4 animate-slide-up"
+        style={{
+          background: '#0f0f0f',
+          backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 60%)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          animationDelay: '0.11s',
+        }}
+      >
         <div className="flex items-center justify-between">
           <p className="section-title">Security</p>
-          <button onClick={() => setChangingPw(!changingPw)} className="text-xs text-brand-500 hover:text-brand-300 font-semibold">
+          <button
+            onClick={() => setChangingPw(!changingPw)}
+            className="text-xs font-medium transition-colors px-3 py-1.5 rounded-lg"
+            style={{ color: changingPw ? '#9ca3af' : '#F5C518', background: changingPw ? 'rgba(255,255,255,0.04)' : 'rgba(245,197,24,0.08)' }}
+          >
             {changingPw ? 'Cancel' : 'Change Password'}
           </button>
         </div>
+
         {changingPw && (
-          <div className="space-y-3">
-            <div><label className="label mb-1.5 block">Current Password</label><input type="password" className="input" value={pwForm.currentPassword} onChange={e => setPwForm({...pwForm, currentPassword: e.target.value})} /></div>
-            <div><label className="label mb-1.5 block">New Password</label><input type="password" className="input" value={pwForm.newPassword} onChange={e => setPwForm({...pwForm, newPassword: e.target.value})} /></div>
-            <div><label className="label mb-1.5 block">Confirm New Password</label><input type="password" className="input" value={pwForm.confirmPassword} onChange={e => setPwForm({...pwForm, confirmPassword: e.target.value})} /></div>
+          <div className="space-y-3 animate-slide-up">
+            <div>
+              <label className="label block mb-1.5">Current Password</label>
+              <input type="password" className="input" value={pwForm.currentPassword} onChange={e => setPwForm({...pwForm, currentPassword: e.target.value})} />
+            </div>
+            <div>
+              <label className="label block mb-1.5">New Password</label>
+              <input type="password" className="input" value={pwForm.newPassword} onChange={e => setPwForm({...pwForm, newPassword: e.target.value})} />
+            </div>
+            <div>
+              <label className="label block mb-1.5">Confirm New Password</label>
+              <input type="password" className="input" value={pwForm.confirmPassword} onChange={e => setPwForm({...pwForm, confirmPassword: e.target.value})} />
+            </div>
             <button onClick={handleChangePassword} disabled={savingPw} className="btn-primary w-full flex items-center justify-center gap-2">
-              {savingPw ? <><Spinner size="sm" /> Saving…</> : 'Update Password'}
+              {savingPw ? <><Spinner size="sm" className="text-black" /> Saving…</> : 'Update Password'}
             </button>
           </div>
         )}
       </div>
 
-      {/* Logout */}
-      <button onClick={handleLogout} className="btn-danger w-full flex items-center justify-center gap-2">
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      {/* Sign out */}
+      <button
+        onClick={handleLogout}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all duration-200 animate-fade-in"
+        style={{
+          background: 'rgba(248,113,113,0.06)',
+          border: '1px solid rgba(248,113,113,0.15)',
+          color: '#f87171',
+          animationDelay: '0.14s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.1)'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.25)'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.06)'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.15)'; }}
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
         </svg>
         Sign Out
       </button>
 
-      <p className="text-center text-xs text-gray-600">Office Attendance v1.0.0</p>
+      <p className="text-center text-[10px] text-gray-700 font-mono pb-2">Office Attendance v1.0.0</p>
     </div>
   );
 }

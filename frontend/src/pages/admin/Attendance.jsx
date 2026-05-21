@@ -3,26 +3,23 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import Spinner from '../../components/common/Spinner';
 import StatusBadge from '../../components/common/StatusBadge';
-import {
-  enablePushNotifications,
-  notifyNewCheckIn,
-  notifyLowAttendance,
-} from '../../services/notifications';
+import { enablePushNotifications, notifyNewCheckIn, notifyLowAttendance } from '../../services/notifications';
 
-const fmt = (d) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
+const fmt  = (d) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
 const fmtH = (h) => { if (!h) return '—'; const hrs = Math.floor(h); const min = Math.round((h - hrs) * 60); return `${hrs}h ${min}m`; };
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-// Group records by date for day-wise view
 function groupByDate(records) {
   const map = {};
-  for (const r of records) {
-    if (!map[r.date]) map[r.date] = [];
-    map[r.date].push(r);
-  }
-  // Sort dates descending
+  for (const r of records) { if (!map[r.date]) map[r.date] = []; map[r.date].push(r); }
   return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
 }
+
+const panelStyle = {
+  background: '#0f0f0f',
+  backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 60%)',
+  border: '1px solid rgba(255,255,255,0.06)',
+};
 
 export default function AdminAttendance() {
   const now = new Date();
@@ -33,10 +30,8 @@ export default function AdminAttendance() {
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [loading, setLoading] = useState(false);
   const [total, setTotal]     = useState(0);
-  const [view, setView]       = useState('list'); // 'list' | 'daywise'
+  const [view, setView]       = useState('list');
   const [expandedDate, setExpandedDate] = useState(null);
-
-  // Track previous check-in count for push notifications
   const [prevCheckedIn, setPrevCheckedIn] = useState(null);
 
   useEffect(() => {
@@ -47,15 +42,11 @@ export default function AdminAttendance() {
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
-      // BUG FIX: Use actual last day of month
-      const lastDay = new Date(year, month, 0).getDate();
       const params = { month, year, limit: 200 };
       if (selectedEmployee) params.userId = selectedEmployee;
       const { data } = await api.get('/admin/attendance', { params });
       setRecords(data.records);
       setTotal(data.total);
-
-      // Push notification if new check-ins appeared (live mode for today)
       const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear();
       if (isCurrentMonth && prevCheckedIn !== null) {
         const todayStr = now.toISOString().split('T')[0];
@@ -64,7 +55,6 @@ export default function AdminAttendance() {
           const newest = todayChecked[todayChecked.length - 1];
           notifyNewCheckIn(newest?.userId?.name || 'Someone', newest?.status);
         }
-        // Low attendance alert
         const totalEmp = employees.length || 1;
         const pct = Math.round((todayChecked.length / totalEmp) * 100);
         if (pct < 50 && prevCheckedIn === 0) notifyLowAttendance(pct);
@@ -74,50 +64,38 @@ export default function AdminAttendance() {
         const todayCount = data.records.filter(r => r.date === todayStr && r.checkInTime).length;
         setPrevCheckedIn(todayCount);
       }
-    } catch {
-      toast.error('Failed to load attendance records');
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error('Failed to load attendance records'); }
+    finally { setLoading(false); }
   }, [month, year, selectedEmployee, employees, prevCheckedIn]);
 
   useEffect(() => { fetchRecords(); }, [month, year, selectedEmployee]);
-
-  // Auto-refresh every 60s for live updates
-  useEffect(() => {
-    const interval = setInterval(fetchRecords, 60000);
-    return () => clearInterval(interval);
-  }, [fetchRecords]);
+  useEffect(() => { const t = setInterval(fetchRecords, 60000); return () => clearInterval(t); }, [fetchRecords]);
 
   const handleExport = async () => {
     try {
       const res = await api.get('/admin/attendance/export', { params: { month, year }, responseType: 'blob' });
       const url = URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `attendance-${year}-${month}.xlsx`;
-      a.click();
+      a.href = url; a.download = `attendance-${year}-${month}.xlsx`; a.click();
       URL.revokeObjectURL(url);
       toast.success('Excel exported!');
-    } catch {
-      toast.error('Export failed');
-    }
+    } catch { toast.error('Export failed'); }
   };
 
-  const present = records.filter(r => r.status === 'present').length;
-  const late    = records.filter(r => r.status === 'late').length;
+  const present   = records.filter(r => r.status === 'present').length;
+  const late      = records.filter(r => r.status === 'late').length;
   const dayGroups = groupByDate(records);
 
   return (
     <div className="p-5 md:p-8 max-w-5xl mx-auto space-y-5 animate-fade-in">
-      <div className="flex items-start justify-between flex-wrap gap-3">
+      <div className="flex items-start justify-between flex-wrap gap-3 animate-slide-up">
         <h1 className="page-title">Attendance Records</h1>
-        <div className="flex gap-2">
-          <button onClick={handleExport} className="btn-secondary py-2 px-4 text-sm flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            Export Excel
-          </button>
-        </div>
+        <button onClick={handleExport} className="btn-secondary py-2 px-4 text-sm flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export Excel
+        </button>
       </div>
 
       {/* Filters */}
@@ -135,95 +113,82 @@ export default function AdminAttendance() {
       </div>
 
       {/* View toggle */}
-      <div className="flex items-center gap-1 bg-surface-card border border-surface-border rounded-xl p-1 w-fit">
-        <button
-          onClick={() => setView('list')}
-          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${view === 'list' ? 'bg-brand-500/20 text-brand-500' : 'text-gray-400 hover:text-gray-200'}`}
-        >
-          📋 All Records
-        </button>
-        <button
-          onClick={() => setView('daywise')}
-          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${view === 'daywise' ? 'bg-brand-500/20 text-brand-500' : 'text-gray-400 hover:text-gray-200'}`}
-        >
-          📅 Day-wise
-        </button>
+      <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ background: '#0f0f0f', border: '1px solid rgba(255,255,255,0.06)' }}>
+        {[{ key: 'list', label: '📋 All Records' }, { key: 'daywise', label: '📅 Day-wise' }].map(({ key, label }) => (
+          <button key={key} onClick={() => setView(key)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${view === key ? 'bg-brand-500/15 text-brand-500' : 'text-gray-600 hover:text-gray-300'}`}>
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* Summary row */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="stat-card text-center">
-          <p className="text-2xl font-display font-bold text-emerald-400">{present}</p>
-          <p className="text-xs text-gray-400">Present</p>
-        </div>
-        <div className="stat-card text-center">
-          <p className="text-2xl font-display font-bold text-amber-400">{late}</p>
-          <p className="text-xs text-gray-400">Late</p>
-        </div>
-        <div className="stat-card text-center">
-          <p className="text-2xl font-display font-bold text-gray-300">{total}</p>
-          <p className="text-xs text-gray-400">Total Records</p>
-        </div>
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-3 stagger">
+        {[
+          { val: present, label: 'Present', color: '#34d399' },
+          { val: late,    label: 'Late',    color: '#fbbf24' },
+          { val: total,   label: 'Total',   color: '#F5C518' },
+        ].map(({ val, label, color }) => (
+          <div key={label} className="rounded-2xl p-4 text-center animate-fade-in" style={panelStyle}>
+            <p className="text-2xl font-display font-bold" style={{ color }}>{val}</p>
+            <p className="text-xs text-gray-600 mt-0.5">{label}</p>
+          </div>
+        ))}
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-10"><Spinner size="lg" /></div>
+        <div className="flex justify-center py-10"><Spinner size="lg" className="text-brand-500" /></div>
       ) : view === 'daywise' ? (
-        /* ── Day-wise View ── */
-        <div className="space-y-3">
-          {dayGroups.length === 0 && (
-            <div className="card p-10 text-center text-gray-400">No records for this period</div>
-          )}
+        <div className="space-y-2">
+          {dayGroups.length === 0 && <div className="card p-10 text-center text-gray-600">No records for this period</div>}
           {dayGroups.map(([date, dayRecords]) => {
             const dayPresent = dayRecords.filter(r => r.status === 'present').length;
             const dayLate    = dayRecords.filter(r => r.status === 'late').length;
             const isExpanded = expandedDate === date;
-            const dayLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-IN', {
-              weekday: 'long', day: 'numeric', month: 'short', year: 'numeric',
-            });
+            const dayLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
             const isSunday = new Date(date + 'T00:00:00').getDay() === 0;
-
             return (
-              <div key={date} className="card overflow-hidden">
-                {/* Day header — clickable to expand */}
+              <div key={date} className="rounded-2xl overflow-hidden" style={panelStyle}>
                 <button
-                  className="w-full p-4 flex items-center justify-between hover:bg-surface-hover transition-colors"
+                  className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
                   onClick={() => setExpandedDate(isExpanded ? null : date)}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-display font-bold
-                      ${isSunday ? 'bg-brand-600/15 text-brand-600' : 'bg-brand-500/15 text-brand-300'}`}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-display font-bold flex-shrink-0"
+                      style={isSunday
+                        ? { background: 'rgba(245,197,24,0.1)', color: '#F5C518' }
+                        : { background: 'rgba(255,255,255,0.05)', color: '#d1d5db' }}>
                       {new Date(date + 'T00:00:00').getDate()}
                     </div>
                     <div className="text-left">
-                      <p className="font-semibold text-white text-sm">{dayLabel}</p>
-                      {isSunday && <p className="text-xs text-brand-600">☀️ Sunday</p>}
+                      <p className="font-display font-semibold text-gray-200 text-sm">{dayLabel}</p>
+                      {isSunday && <p className="text-xs text-brand-500">☀️ Sunday</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex gap-2 text-xs">
                       <span className="text-emerald-400 font-semibold">{dayPresent}P</span>
                       <span className="text-amber-400 font-semibold">{dayLate}L</span>
-                      <span className="text-gray-400">{dayRecords.length} total</span>
+                      <span className="text-gray-600">{dayRecords.length} total</span>
                     </div>
-                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className={`w-4 h-4 text-gray-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
                 </button>
-
-                {/* Expanded employee list */}
                 {isExpanded && (
-                  <div className="border-t border-surface-border divide-y divide-surface-border">
-                    {dayRecords.map(r => (
-                      <div key={r._id} className="px-4 py-3 flex items-center justify-between hover:bg-surface-hover transition-colors">
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    {dayRecords.map((r, i) => (
+                      <div key={r._id} className="px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                        style={i < dayRecords.length - 1 ? { borderBottom: '1px solid rgba(255,255,255,0.04)' } : {}}>
                         <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-full bg-brand-500/20 flex items-center justify-center text-xs font-bold text-brand-300">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-black flex-shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #F5C518, #e6b800)' }}>
                             {r.userId?.name?.charAt(0)?.toUpperCase() || '?'}
                           </div>
                           <div>
                             <p className="text-sm font-medium text-gray-200">{r.userId?.name || '—'}</p>
-                            <p className="text-xs text-gray-500">{r.userId?.department || ''}</p>
+                            <p className="text-xs text-gray-600">{r.userId?.department || ''}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -245,29 +210,29 @@ export default function AdminAttendance() {
           })}
         </div>
       ) : (
-        /* ── List View ── */
         <>
           {/* Desktop table */}
-          <div className="hidden md:block card overflow-hidden">
+          <div className="hidden md:block rounded-2xl overflow-hidden" style={panelStyle}>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-surface-border">
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   {['Employee','Date','Status','Check In','Check Out','Work Hours'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{h}</th>
+                    <th key={h} className="text-left px-4 py-3.5 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-border">
+              <tbody>
                 {records.length === 0 && (
-                  <tr><td colSpan={6} className="text-center py-10 text-gray-400">No records found</td></tr>
+                  <tr><td colSpan={6} className="text-center py-10 text-gray-600">No records found</td></tr>
                 )}
-                {records.map(r => (
-                  <tr key={r._id} className="hover:bg-surface-hover transition-colors">
+                {records.map((r, i) => (
+                  <tr key={r._id} className="hover:bg-white/[0.02] transition-colors"
+                    style={i < records.length - 1 ? { borderBottom: '1px solid rgba(255,255,255,0.04)' } : {}}>
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-200">{r.userId?.name || '—'}</p>
-                      <p className="text-xs text-gray-500">{r.userId?.department || ''}</p>
+                      <p className="text-xs text-gray-600">{r.userId?.department || ''}</p>
                     </td>
-                    <td className="px-4 py-3 text-gray-300 font-mono text-xs">
+                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">
                       {new Date(r.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={r.checkInTime ? r.status : 'absent'} /></td>
@@ -281,24 +246,26 @@ export default function AdminAttendance() {
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden space-y-3">
-            {records.length === 0 && <div className="card p-10 text-center text-gray-400">No records found</div>}
+          <div className="md:hidden space-y-2">
+            {records.length === 0 && <div className="card p-10 text-center text-gray-600">No records found</div>}
             {records.map(r => (
-              <div key={r._id} className="card p-4 space-y-3">
+              <div key={r._id} className="rounded-xl p-4 space-y-3" style={panelStyle}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-white text-sm">{r.userId?.name || '—'}</p>
-                    <p className="text-xs text-gray-500 font-mono">
+                    <p className="font-display font-semibold text-white text-sm">{r.userId?.name || '—'}</p>
+                    <p className="text-xs text-gray-600 font-mono">
                       {new Date(r.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                     </p>
                   </div>
                   <StatusBadge status={r.checkInTime ? r.status : 'absent'} />
                 </div>
                 {r.checkInTime && (
-                  <div className="grid grid-cols-3 gap-2 text-center bg-surface-DEFAULT rounded-xl p-2.5">
-                    <div><p className="text-[10px] text-gray-500">IN</p><p className="font-mono text-xs text-emerald-400">{fmt(r.checkInTime)}</p></div>
-                    <div className="border-x border-surface-border"><p className="text-[10px] text-gray-500">OUT</p><p className="font-mono text-xs text-amber-400">{fmt(r.checkOutTime)}</p></div>
-                    <div><p className="text-[10px] text-gray-500">HRS</p><p className="font-mono text-xs text-brand-500">{fmtH(r.workHours)}</p></div>
+                  <div className="grid grid-cols-3 gap-2 text-center bg-white/[0.03] border border-white/[0.04] rounded-xl p-2.5">
+                    <div><p className="text-[9px] text-gray-700">IN</p><p className="font-mono text-xs text-emerald-400">{fmt(r.checkInTime)}</p></div>
+                    <div style={{ borderLeft: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                      <p className="text-[9px] text-gray-700">OUT</p><p className="font-mono text-xs text-amber-400">{fmt(r.checkOutTime)}</p>
+                    </div>
+                    <div><p className="text-[9px] text-gray-700">HRS</p><p className="font-mono text-xs text-brand-500">{fmtH(r.workHours)}</p></div>
                   </div>
                 )}
               </div>

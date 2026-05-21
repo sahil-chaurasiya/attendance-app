@@ -1,19 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const REQUEST_TYPES = [
-  { value: 'missing_checkin',   label: 'Missing Check-In',         needsIn: true,  needsOut: false },
-  { value: 'missing_checkout',  label: 'Missing Check-Out',        needsIn: false, needsOut: true  },
-  { value: 'both',              label: 'Fix Both In & Out',        needsIn: true,  needsOut: true  },
+  { value: 'missing_checkin',   label: 'Missing Check-In',            needsIn: true,  needsOut: false },
+  { value: 'missing_checkout',  label: 'Missing Check-Out',           needsIn: false, needsOut: true  },
+  { value: 'both',              label: 'Fix Both In & Out',           needsIn: true,  needsOut: true  },
   { value: 'absent_correction', label: 'Marked Absent (Was Present)', needsIn: true,  needsOut: true  },
 ];
 
 const STATUS_STYLES = {
-  pending:  'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
-  approved: 'bg-green-500/15 text-green-400 border border-green-500/30',
-  rejected: 'bg-red-500/15 text-red-400 border border-red-500/30',
+  pending:  { bg: 'rgba(251,191,36,0.08)',  border: 'rgba(251,191,36,0.2)',  text: '#fbbf24' },
+  approved: { bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.2)', text: '#34d399' },
+  rejected: { bg: 'rgba(248,113,113,0.08)',border: 'rgba(248,113,113,0.2)',text: '#f87171' },
 };
 
 const fmt = (dateStr) =>
@@ -24,10 +22,9 @@ const fmtDate = (d) =>
 
 const TYPE_LABEL = Object.fromEntries(REQUEST_TYPES.map(t => [t.value, t.label]));
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 function RequestCard({ req, onCancel }) {
   const [cancelling, setCancelling] = useState(false);
+  const s = STATUS_STYLES[req.status] || STATUS_STYLES.pending;
 
   const handleCancel = async () => {
     if (!confirm('Cancel this request?')) return;
@@ -36,41 +33,51 @@ function RequestCard({ req, onCancel }) {
   };
 
   return (
-    <div className="bg-surface-card border border-surface-border rounded-2xl p-4 space-y-3">
+    <div
+      className="rounded-2xl p-4 space-y-3 animate-fade-in"
+      style={{
+        background: '#0f0f0f',
+        backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 60%)',
+        border: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-gray-200">{fmtDate(req.date)}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{TYPE_LABEL[req.requestType] || req.requestType}</p>
+          <p className="text-sm font-display font-semibold text-gray-200">{fmtDate(req.date)}</p>
+          <p className="text-xs text-gray-600 mt-0.5">{TYPE_LABEL[req.requestType] || req.requestType}</p>
         </div>
-        <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${STATUS_STYLES[req.status]}`}>
+        <span
+          className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full flex-shrink-0"
+          style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text }}
+        >
           {req.status}
         </span>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
         {req.requestedCheckIn && (
-          <div className="bg-surface rounded-xl p-2.5">
-            <p className="text-gray-500 mb-0.5">Requested In</p>
-            <p className="text-gray-200 font-medium">{fmt(req.requestedCheckIn)}</p>
+          <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-2.5">
+            <p className="text-gray-600 mb-0.5 text-[10px] uppercase tracking-wide">Requested In</p>
+            <p className="text-gray-200 font-medium font-mono text-[11px]">{fmt(req.requestedCheckIn)}</p>
           </div>
         )}
         {req.requestedCheckOut && (
-          <div className="bg-surface rounded-xl p-2.5">
-            <p className="text-gray-500 mb-0.5">Requested Out</p>
-            <p className="text-gray-200 font-medium">{fmt(req.requestedCheckOut)}</p>
+          <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-2.5">
+            <p className="text-gray-600 mb-0.5 text-[10px] uppercase tracking-wide">Requested Out</p>
+            <p className="text-gray-200 font-medium font-mono text-[11px]">{fmt(req.requestedCheckOut)}</p>
           </div>
         )}
       </div>
 
-      <div className="bg-surface rounded-xl p-2.5 text-xs">
-        <p className="text-gray-500 mb-0.5">Reason</p>
-        <p className="text-gray-300">{req.reason}</p>
+      <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-2.5">
+        <p className="text-gray-600 mb-0.5 text-[10px] uppercase tracking-wide">Reason</p>
+        <p className="text-gray-300 text-xs">{req.reason}</p>
       </div>
 
       {req.adminNote && (
-        <div className="bg-surface rounded-xl p-2.5 text-xs border border-surface-border">
-          <p className="text-gray-500 mb-0.5">Admin Note</p>
-          <p className="text-gray-300">{req.adminNote}</p>
+        <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-2.5">
+          <p className="text-gray-600 mb-0.5 text-[10px] uppercase tracking-wide">Admin Note</p>
+          <p className="text-gray-400 text-xs italic">{req.adminNote}</p>
         </div>
       )}
 
@@ -78,7 +85,12 @@ function RequestCard({ req, onCancel }) {
         <button
           onClick={handleCancel}
           disabled={cancelling}
-          className="w-full text-xs text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-500/60 rounded-xl py-2 transition-all duration-200 disabled:opacity-50"
+          className="w-full text-xs font-medium py-2 rounded-xl transition-all duration-200 disabled:opacity-50"
+          style={{
+            color: '#f87171',
+            border: '1px solid rgba(248,113,113,0.2)',
+            background: 'rgba(248,113,113,0.05)',
+          }}
         >
           {cancelling ? 'Cancelling…' : 'Cancel Request'}
         </button>
@@ -86,8 +98,6 @@ function RequestCard({ req, onCancel }) {
     </div>
   );
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function EmployeeRegularization() {
   const [requests, setRequests]     = useState([]);
@@ -98,13 +108,8 @@ export default function EmployeeRegularization() {
   const [success, setSuccess]       = useState('');
   const [filterStatus, setFilter]   = useState('all');
 
-  // Form state
   const [form, setForm] = useState({
-    date: '',
-    requestType: '',
-    checkInTime: '',
-    checkOutTime: '',
-    reason: '',
+    date: '', requestType: '', checkInTime: '', checkOutTime: '', reason: '',
   });
 
   const selectedType = REQUEST_TYPES.find(t => t.value === form.requestType);
@@ -113,11 +118,8 @@ export default function EmployeeRegularization() {
     try {
       const { data } = await api.get('/regularization/my-requests');
       setRequests(data.requests || []);
-    } catch {
-      setError('Failed to load requests');
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError('Failed to load requests'); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
@@ -131,21 +133,17 @@ export default function EmployeeRegularization() {
     setSubmitting(true);
     try {
       await api.post('/regularization/request', {
-        date:         form.date,
-        requestType:  form.requestType,
-        checkInTime:  form.checkInTime  || undefined,
+        date: form.date, requestType: form.requestType,
+        checkInTime: form.checkInTime || undefined,
         checkOutTime: form.checkOutTime || undefined,
-        reason:       form.reason.trim(),
+        reason: form.reason.trim(),
       });
       setSuccess('Request submitted! Admin will review it soon.');
       setShowForm(false);
       setForm({ date: '', requestType: '', checkInTime: '', checkOutTime: '', reason: '' });
       fetchRequests();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit request');
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (err) { setError(err.response?.data?.message || 'Failed to submit request'); }
+    finally { setSubmitting(false); }
   };
 
   const handleCancel = async (id) => {
@@ -154,68 +152,81 @@ export default function EmployeeRegularization() {
   };
 
   const filtered = filterStatus === 'all' ? requests : requests.filter(r => r.status === filterStatus);
-
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-lg mx-auto px-4 py-6 space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-slide-up">
         <div>
-          <h1 className="text-xl font-display font-bold text-white">Regularization</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Fix incorrect or missing attendance</p>
+          <h1 className="page-title">Regularization</h1>
+          <p className="text-xs text-gray-600 mt-0.5">Fix incorrect or missing attendance</p>
         </div>
         <button
           onClick={() => { setShowForm(v => !v); setError(''); }}
           className="btn-primary text-sm px-4 py-2"
         >
-          {showForm ? 'Cancel' : '+ New Request'}
+          {showForm ? 'Cancel' : '+ New'}
         </button>
       </div>
 
       {/* Flash messages */}
       {success && (
-        <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-sm rounded-2xl px-4 py-3 flex items-center justify-between">
-          {success}
-          <button onClick={() => setSuccess('')} className="text-green-300 hover:text-green-100 ml-2">✕</button>
+        <div
+          className="rounded-xl px-4 py-3 flex items-center justify-between animate-slide-up"
+          style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', color: '#34d399' }}
+        >
+          <span className="text-sm">{success}</span>
+          <button onClick={() => setSuccess('')} className="ml-3 opacity-60 hover:opacity-100">✕</button>
         </div>
       )}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-2xl px-4 py-3 flex items-center justify-between">
-          {error}
-          <button onClick={() => setError('')} className="text-red-300 hover:text-red-100 ml-2">✕</button>
+        <div
+          className="rounded-xl px-4 py-3 flex items-center justify-between animate-slide-up"
+          style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}
+        >
+          <span className="text-sm">{error}</span>
+          <button onClick={() => setError('')} className="ml-3 opacity-60 hover:opacity-100">✕</button>
         </div>
       )}
 
-      {/* ── New Request Form ── */}
+      {/* Form */}
       {showForm && (
-        <div className="bg-surface-card border border-surface-border rounded-2xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-gray-200">New Regularization Request</h2>
+        <div
+          className="rounded-2xl p-5 space-y-4 animate-slide-up relative overflow-hidden"
+          style={{
+            background: '#0f0f0f',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%)',
+            border: '1px solid rgba(245,197,24,0.12)',
+          }}
+        >
+          <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-brand-500/15 to-transparent" />
+          <h2 className="font-display font-semibold text-white text-sm">New Regularization Request</h2>
 
           {/* Date */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Date to Correct</label>
-            <input
-              type="date"
-              max={today}
-              value={form.date}
-              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              className="input w-full"
-            />
+            <label className="label block mb-1.5">Date to Correct</label>
+            <input type="date" max={today} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="input" />
           </div>
 
-          {/* Type */}
+          {/* Request type */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">What needs fixing?</label>
-            <div className="grid grid-cols-1 gap-2">
+            <label className="label block mb-2">What needs fixing?</label>
+            <div className="grid grid-cols-1 gap-1.5">
               {REQUEST_TYPES.map(t => (
                 <button
                   key={t.value}
                   onClick={() => setForm(f => ({ ...f, requestType: t.value, checkInTime: '', checkOutTime: '' }))}
-                  className={`text-left text-sm px-3 py-2.5 rounded-xl border transition-all duration-200
-                    ${form.requestType === t.value
-                      ? 'bg-brand-500/15 border-brand-500/50 text-brand-400'
-                      : 'border-surface-border text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}
+                  className="text-left text-sm px-3.5 py-2.5 rounded-xl transition-all duration-200"
+                  style={form.requestType === t.value ? {
+                    background: 'rgba(245,197,24,0.08)',
+                    border: '1px solid rgba(245,197,24,0.25)',
+                    color: '#F5C518',
+                  } : {
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    color: '#6b7280',
+                  }}
                 >
                   {t.label}
                 </button>
@@ -223,91 +234,88 @@ export default function EmployeeRegularization() {
             </div>
           </div>
 
-          {/* Time inputs — shown only when relevant */}
           {selectedType?.needsIn && (
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">
-                {form.requestType === 'both' || form.requestType === 'both' ? 'Check-In Time' : 'Correct Check-In Time'}
+              <label className="label block mb-1.5">
+                {form.requestType === 'both' ? 'Check-In Time' : 'Correct Check-In Time'}
               </label>
-              <input
-                type="time"
-                value={form.checkInTime}
-                onChange={e => setForm(f => ({ ...f, checkInTime: e.target.value }))}
-                className="input w-full"
-              />
+              <input type="time" value={form.checkInTime} onChange={e => setForm(f => ({ ...f, checkInTime: e.target.value }))} className="input" />
             </div>
           )}
 
           {selectedType?.needsOut && (
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">
+              <label className="label block mb-1.5">
                 {form.requestType === 'both' ? 'Check-Out Time' : 'Correct Check-Out Time'}
               </label>
-              <input
-                type="time"
-                value={form.checkOutTime}
-                onChange={e => setForm(f => ({ ...f, checkOutTime: e.target.value }))}
-                className="input w-full"
-              />
+              <input type="time" value={form.checkOutTime} onChange={e => setForm(f => ({ ...f, checkOutTime: e.target.value }))} className="input" />
             </div>
           )}
 
           {/* Reason */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Reason <span className="text-gray-600">(be specific)</span></label>
+            <label className="label block mb-1.5">
+              Reason <span className="text-gray-700 normal-case tracking-normal">— be specific</span>
+            </label>
             <textarea
               rows={3}
               placeholder="e.g. Forgot to check out before leaving for an emergency meeting…"
               value={form.reason}
               onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-              className="input w-full resize-none"
+              className="input"
               maxLength={500}
             />
-            <p className="text-right text-[10px] text-gray-600 mt-1">{form.reason.length}/500</p>
+            <p className="text-right text-[10px] text-gray-700 mt-1 font-mono">{form.reason.length}/500</p>
           </div>
 
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="btn-primary w-full py-2.5 text-sm disabled:opacity-50"
+            className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {submitting ? 'Submitting…' : 'Submit Request'}
+            {submitting ? (
+              <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5"/><path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v2.5a5.5 5.5 0 00-5.5 5.5H4z"/></svg> Submitting…</>
+            ) : 'Submit Request'}
           </button>
         </div>
       )}
 
-      {/* ── Filter bar ── */}
+      {/* Filter chips */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {['all', 'pending', 'approved', 'rejected'].map(s => (
           <button
             key={s}
             onClick={() => setFilter(s)}
-            className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full border transition-all duration-200 capitalize
-              ${filterStatus === s
-                ? 'bg-brand-500/20 border-brand-500/50 text-brand-400'
-                : 'border-surface-border text-gray-500 hover:text-gray-300'}`}
+            className="flex-shrink-0 text-xs px-3.5 py-1.5 rounded-full capitalize transition-all duration-200"
+            style={filterStatus === s ? {
+              background: 'rgba(245,197,24,0.1)',
+              border: '1px solid rgba(245,197,24,0.25)',
+              color: '#F5C518',
+            } : {
+              background: '#0f0f0f',
+              border: '1px solid rgba(255,255,255,0.06)',
+              color: '#6b7280',
+            }}
           >
             {s}
           </button>
         ))}
       </div>
 
-      {/* ── List ── */}
+      {/* List */}
       {loading ? (
-        <div className="text-center text-gray-500 py-12 text-sm">Loading…</div>
+        <div className="text-center text-gray-600 py-12 text-sm">Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 space-y-2">
-          <div className="text-4xl">📋</div>
-          <p className="text-gray-500 text-sm">No requests found</p>
+          <div className="text-3xl">📋</div>
+          <p className="text-gray-600 text-sm">No requests found</p>
           {filterStatus !== 'all' && (
             <button onClick={() => setFilter('all')} className="text-brand-500 text-xs hover:underline">Show all</button>
           )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map(r => (
-            <RequestCard key={r._id} req={r} onCancel={handleCancel} />
-          ))}
+        <div className="space-y-2.5">
+          {filtered.map(r => <RequestCard key={r._id} req={r} onCancel={handleCancel} />)}
         </div>
       )}
     </div>

@@ -187,7 +187,7 @@ export default function AdminEmployeeAttendance() {
         <select value={year} onChange={e => handleYearChange(e.target.value)} className="input w-28">
           {validYears.map(y => <option key={y}>{y}</option>)}
         </select>
-        <div className="flex items-center gap-1 bg-surface-card border border-surface-border rounded-xl p-1 ml-auto">
+        <div className="flex items-center gap-1 bg-[#0f0f0f] border border-white/[0.06] rounded-xl p-1 ml-auto">
           <button onClick={() => setView('list')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${view === 'list' ? 'bg-brand-500/20 text-brand-500' : 'text-gray-400 hover:text-gray-200'}`}>
             📋 List
           </button>
@@ -207,11 +207,11 @@ export default function AdminEmployeeAttendance() {
               { label: 'Present',  value: present,          cls: 'text-emerald-400' },
               { label: 'Late',     value: late,             cls: 'text-amber-400'   },
               { label: 'Absent',   value: absent,           cls: 'text-red-400'     },
-              { label: 'Sundays',  value: passedSundays,    cls: 'text-brand-400'   },
+              { label: 'Sundays',  value: passedSundays,    cls: 'text-brand-500'   },
               { label: 'Hrs Worked', value: fmtH(totalHours), cls: 'text-purple-400' },
               { label: 'Attend %', value: `${pct}%`,        cls: pct >= 90 ? 'text-emerald-400' : pct >= 75 ? 'text-amber-400' : 'text-red-400' },
             ].map(s => (
-              <div key={s.label} className="card p-3 text-center">
+              <div key={s.label} className="rounded-2xl p-3 text-center">
                 <p className={`text-xl font-bold font-display ${s.cls}`}>{s.value}</p>
                 <p className="text-[10px] text-gray-500 mt-0.5">{s.label}</p>
               </div>
@@ -220,11 +220,11 @@ export default function AdminEmployeeAttendance() {
 
           {/* ── Calendar View ── */}
           {view === 'calendar' && (
-            <div className="card p-5 space-y-3">
+            <div className="rounded-2xl p-5 space-y-3">
               <p className="text-sm font-semibold text-gray-300 text-center">{MONTHS[month - 1]} {year}</p>
               <div className="grid grid-cols-7 gap-1">
                 {DAY_NAMES.map(d => (
-                  <div key={d} className={`text-center text-[10px] font-bold py-1 ${d === 'Sun' ? 'text-brand-400' : 'text-gray-500'}`}>{d}</div>
+                  <div key={d} className={`text-center text-[10px] font-bold py-1 ${d === 'Sun' ? 'text-brand-500' : 'text-gray-500'}`}>{d}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
@@ -242,14 +242,14 @@ export default function AdminEmployeeAttendance() {
                         ${day.isToday ? 'ring-2 ring-brand-500/60' : ''}
                       `}
                     >
-                      <span className={`text-xs font-semibold ${day.isSunday ? 'text-brand-400' : ''}`}>{day.d}</span>
+                      <span className={`text-xs font-semibold ${day.isSunday ? 'text-brand-500' : ''}`}>{day.d}</span>
                       {dot && <span className={`w-1 h-1 rounded-full mt-0.5 ${dot}`} />}
                       {day.isToday && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-brand-400 rounded-full" />}
                     </button>
                   );
                 })}
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-2 border-t border-surface-border">
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-2 border-t border-white/[0.05]">
                 {[['bg-emerald-400','Present'],['bg-amber-400','Late'],['bg-red-400','Absent'],['bg-brand-400','Sunday'],].map(([c,l]) => (
                   <div key={l} className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${c}`} /><span className="text-[10px] text-gray-400">{l}</span>
@@ -263,7 +263,7 @@ export default function AdminEmployeeAttendance() {
           {view === 'list' && (
             <div className="space-y-3">
               {dayList.length === 0 && (
-                <div className="card p-10 text-center text-gray-400">No records for {MONTHS[month - 1]} {year}</div>
+                <div className="rounded-2xl p-10 text-center text-gray-400">No records for {MONTHS[month - 1]} {year}</div>
               )}
               {dayList.map(({ d, dateStr, isSunday, isToday, record, status }) => (
                 <div key={dateStr} className={`card p-4 animate-slide-up ${isToday ? 'border border-brand-500/30' : ''}`}>
@@ -300,7 +300,7 @@ export default function AdminEmployeeAttendance() {
                               <span className="text-[10px] text-brand-400 bg-brand-500/10 border border-brand-500/20 px-2 py-0.5 rounded-full">Today</span>
                             )}
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-center bg-surface-DEFAULT rounded-xl p-3">
+                          <div className="grid grid-cols-3 gap-2 text-center bg-white/[0.02] rounded-xl p-3">
                             <div>
                               <p className="text-[10px] text-gray-500 mb-1">CHECK IN</p>
                               <p className="font-mono text-sm font-bold text-emerald-400">{fmt(record.checkInTime)}</p>
@@ -334,12 +334,12 @@ export default function AdminEmployeeAttendance() {
       {/* ── Calendar Day Detail Drawer ── */}
       {selDay && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={() => setSelDay(null)}>
-          <div className="bg-surface-card border border-surface-border rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6 animate-slide-up" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#0f0f0f] border border-white/[0.06] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6 animate-slide-up" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between mb-4">
               <p className="text-white font-bold text-base">
                 {new Date(selDay.dateStr + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
-              <button onClick={() => setSelDay(null)} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-surface-hover transition-colors ml-2 flex-shrink-0">
+              <button onClick={() => setSelDay(null)} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.03] transition-colors ml-2 flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -362,7 +362,7 @@ export default function AdminEmployeeAttendance() {
                   <StatusBadge status={selDay.record.status} />
                   {selDay.record.autoCheckout && <span className="text-xs text-gray-500 bg-gray-500/10 px-2 py-0.5 rounded-full">Auto checkout</span>}
                 </div>
-                <div className="grid grid-cols-3 gap-3 text-center bg-surface-DEFAULT rounded-xl p-4">
+                <div className="grid grid-cols-3 gap-3 text-center bg-white/[0.02] rounded-xl p-4">
                   <div>
                     <p className="text-[10px] text-gray-500 mb-1">CHECK IN</p>
                     <p className="font-mono text-sm font-bold text-emerald-400">{fmt(selDay.record.checkInTime)}</p>
@@ -381,7 +381,7 @@ export default function AdminEmployeeAttendance() {
               <p className="text-gray-400 text-sm text-center py-4">No record for this day</p>
             )}
 
-            <button onClick={() => setSelDay(null)} className="mt-4 w-full py-2.5 rounded-xl bg-surface-hover text-gray-300 text-sm font-medium hover:bg-surface-border transition-colors">Close</button>
+            <button onClick={() => setSelDay(null)} className="mt-4 w-full py-2.5 rounded-xl bg-white/[0.04] text-gray-300 text-sm font-medium hover:bg-surface-border transition-colors">Close</button>
           </div>
         </div>
       )}

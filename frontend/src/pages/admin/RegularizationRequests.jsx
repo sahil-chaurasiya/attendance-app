@@ -44,7 +44,7 @@ function ReviewModal({ request, onClose, onDone }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-      <div className="bg-surface-card border border-surface-border rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl">
+      <div className="bg-[#0f0f0f] border border-white/[0.06] rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-base font-semibold text-white">Review Request</h2>
@@ -75,12 +75,12 @@ function ReviewModal({ request, onClose, onDone }) {
               <span className="text-red-400">{fmt(request.requestedCheckOut)}</span>
             </div>
           )}
-          <div className="border-t border-surface-border pt-3">
+          <div className="border-t border-white/[0.05] pt-3">
             <p className="text-gray-500 text-xs mb-1">Reason</p>
             <p className="text-gray-300">{request.reason}</p>
           </div>
           {request.snapshotBefore && (
-            <div className="border-t border-surface-border pt-3">
+            <div className="border-t border-white/[0.05] pt-3">
               <p className="text-gray-500 text-xs mb-2">Current Record (Before)</p>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
@@ -160,7 +160,7 @@ function DeleteModal({ request, onClose, onDone }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-      <div className="bg-surface-card border border-surface-border rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
+      <div className="bg-[#0f0f0f] border border-white/[0.06] rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
         <div className="flex items-start justify-between">
           <h2 className="text-base font-semibold text-white">Delete Request?</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
@@ -203,7 +203,7 @@ function DeleteModal({ request, onClose, onDone }) {
 
 function RequestRow({ req, onReview, onDelete }) {
   return (
-    <div className="bg-surface-card border border-surface-border rounded-2xl p-4">
+    <div className="bg-[#0f0f0f] border border-white/[0.06] rounded-2xl p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
