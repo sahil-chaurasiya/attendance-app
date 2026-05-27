@@ -37,7 +37,7 @@ export default function UpdateNoticeModal() {
       color: 'amber',
       title: 'Late arrival time updated',
       desc: (
-        <>The late arrival threshold is now{' '}<span className="text-white font-semibold">10:45 AM</span>{' '}(Monday through Friday). Previously it was 11:00 AM.</>
+        <>The late arrival threshold is now{' '}<span className="text-white font-semibold">11:00 AM</span>{' '}(Monday through Friday). Previously it was 10:45 AM.</>
       ),
     },
   ];
