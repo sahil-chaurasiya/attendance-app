@@ -6,21 +6,33 @@ import StatusBadge from '../../components/common/StatusBadge';
 
 const fmt = (d) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
 
-function StatCard({ label, value, sub, accent }) {
+const panelStyle = {
+  background: '#0f0f0f',
+  backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%)',
+  border: '1px solid rgba(255,255,255,0.06)',
+};
+
+function StatCard({ label, value, sub, accent, active, onClick }) {
   return (
     <div
+      onClick={onClick}
       className="rounded-2xl p-5 flex flex-col gap-1.5 animate-fade-in relative overflow-hidden"
       style={{
         background: '#0f0f0f',
         backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%)',
-        border: `1px solid ${accent}18`,
-        boxShadow: `0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.3)`,
+        border: active ? `1px solid ${accent}50` : `1px solid ${accent}18`,
+        boxShadow: active
+          ? `0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${accent}20`
+          : `0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.3)`,
+        cursor: 'pointer',
+        transition: 'border-color 0.15s, box-shadow 0.15s',
       }}
     >
       <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${accent}20, transparent)` }} />
       <p className="text-[10px] text-gray-600 uppercase tracking-[0.1em] font-medium">{label}</p>
       <p className="text-3xl font-display font-bold" style={{ color: accent }}>{value ?? '—'}</p>
       {sub && <p className="text-[10px] text-gray-700">{sub}</p>}
+      <p className="text-[10px] mt-0.5" style={{ color: `${accent}70` }}>{active ? '▲ Hide' : '▼ View'}</p>
     </div>
   );
 }
@@ -28,6 +40,9 @@ function StatCard({ label, value, sub, accent }) {
 export default function AdminDashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState(null); // 'present' | 'late' | 'absent' | 'total'
+  const [filterRecords, setFilterRecords] = useState([]);
+  const [filterLoading, setFilterLoading] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -43,6 +58,44 @@ export default function AdminDashboard() {
     return () => clearInterval(t);
   }, [fetchDashboard]);
 
+  const handleKpiClick = async (filter) => {
+    // toggle off
+    if (activeFilter === filter) {
+      setActiveFilter(null);
+      setFilterRecords([]);
+      return;
+    }
+    setActiveFilter(filter);
+    setFilterLoading(true);
+    try {
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+
+      if (filter === 'absent') {
+        // Absent = active employees who have NO record today
+        const [attendRes, empRes] = await Promise.all([
+          api.get('/admin/attendance', { params: { date: todayStr, limit: 200 } }),
+          api.get('/admin/employees', { params: { isActive: true, limit: 200 } }),
+        ]);
+        const checkedInIds = new Set((attendRes.data.records || []).filter(r => r.checkInTime).map(r => r.userId?._id || r.userId));
+        const absent = (empRes.data.employees || []).filter(e => !checkedInIds.has(e._id));
+        // Shape to match record format for display
+        setFilterRecords(absent.map(e => ({ _id: e._id, userId: e, checkInTime: null, checkOutTime: null, status: 'absent' })));
+      } else {
+        const { data } = await api.get('/admin/attendance', { params: { date: todayStr, limit: 200 } });
+        const all = data.records || [];
+        if (filter === 'present') {
+          setFilterRecords(all.filter(r => r.checkInTime && r.status === 'present'));
+        } else if (filter === 'late') {
+          setFilterRecords(all.filter(r => r.checkInTime && r.status === 'late'));
+        } else {
+          setFilterRecords(all);
+        }
+      }
+    } catch { toast.error('Failed to load records'); }
+    finally { setFilterLoading(false); }
+  };
+
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   if (loading) return (
@@ -54,6 +107,13 @@ export default function AdminDashboard() {
   const attendancePct = dashboard?.totalEmployees > 0
     ? Math.round((dashboard.checkedIn / dashboard.totalEmployees) * 100) : 0;
 
+  const filterLabel = {
+    present: { text: 'Present', color: '#34d399' },
+    late:    { text: 'Late',    color: '#fbbf24' },
+    absent:  { text: 'Absent',  color: '#f87171' },
+    total:   { text: 'All Employees', color: '#F5C518' },
+  };
+
   return (
     <div className="p-5 md:p-8 max-w-5xl mx-auto space-y-5 animate-fade-in">
       {/* Header */}
@@ -64,11 +124,62 @@ export default function AdminDashboard() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 stagger">
-        <StatCard label="Total Employees" value={dashboard?.totalEmployees} accent="#F5C518" />
-        <StatCard label="Present Today"   value={dashboard?.present}        accent="#34d399" />
-        <StatCard label="Late Today"      value={dashboard?.late}           accent="#fbbf24" />
-        <StatCard label="Absent Today"    value={dashboard?.absent}         accent="#f87171" />
+        <StatCard label="Total Employees" value={dashboard?.totalEmployees} accent="#F5C518" active={activeFilter === 'total'}   onClick={() => handleKpiClick('total')}   />
+        <StatCard label="Present Today"   value={dashboard?.present}        accent="#34d399" active={activeFilter === 'present'} onClick={() => handleKpiClick('present')} />
+        <StatCard label="Late Today"      value={dashboard?.late}           accent="#fbbf24" active={activeFilter === 'late'}    onClick={() => handleKpiClick('late')}    />
+        <StatCard label="Absent Today"    value={dashboard?.absent}         accent="#f87171" active={activeFilter === 'absent'}  onClick={() => handleKpiClick('absent')}  />
       </div>
+
+      {/* Inline filter panel */}
+      {activeFilter && (
+        <div className="rounded-2xl overflow-hidden animate-fade-in" style={panelStyle}>
+          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <p className="section-title" style={{ color: filterLabel[activeFilter].color }}>
+              {filterLabel[activeFilter].text}
+              {!filterLoading && <span className="ml-2 text-gray-600 text-xs font-normal">({filterRecords.length})</span>}
+            </p>
+            <button onClick={() => { setActiveFilter(null); setFilterRecords([]); }} className="text-gray-600 hover:text-gray-300 transition-colors text-xs">✕ Close</button>
+          </div>
+
+          {filterLoading ? (
+            <div className="flex justify-center py-8"><Spinner size="md" className="text-brand-500" /></div>
+          ) : filterRecords.length === 0 ? (
+            <p className="text-center text-gray-600 py-8 text-sm">No records found</p>
+          ) : (
+            <div>
+              {filterRecords.map((r, i) => (
+                <div
+                  key={r._id}
+                  className="flex items-center justify-between px-5 py-3 hover:bg-white/[0.02] transition-colors"
+                  style={i < filterRecords.length - 1 ? { borderBottom: '1px solid rgba(255,255,255,0.04)' } : {}}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-black flex-shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #F5C518, #e6b800)' }}
+                    >
+                      {r.userId?.name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-200">{r.userId?.name || '—'}</p>
+                      <p className="text-[11px] text-gray-600">{r.userId?.department || r.userId?.email || ''}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {r.checkInTime && (
+                      <div className="text-right hidden sm:block">
+                        <p className="text-xs text-emerald-400 font-mono">{fmt(r.checkInTime)}</p>
+                        {r.checkOutTime && <p className="text-xs text-amber-400 font-mono">{fmt(r.checkOutTime)}</p>}
+                      </div>
+                    )}
+                    <StatusBadge status={r.checkInTime ? r.status : 'absent'} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Attendance rate bar */}
       <div
