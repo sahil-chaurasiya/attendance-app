@@ -51,18 +51,27 @@ self.addEventListener('push', (event) => {
     data = event.data.json();
   } catch (_) {}
 
+  // 8-hour checkout reminders stay on screen until dismissed
+  const is8HrReminder = data.tag === 'checkout-8hr-reminder';
+
   const options = {
     body: data.body || '',
     icon: data.icon || '/icon-192.png',
     badge: data.badge || '/icon-192.png',
     tag: data.tag || `attendance-${Date.now()}`,
     renotify: true,
-    vibrate: [200, 100, 200],
+    vibrate: is8HrReminder ? [300, 100, 300, 100, 300] : [200, 100, 200],
+    requireInteraction: is8HrReminder, // keeps notification visible until user acts
     data: { url: data.url || '/' },
-    actions: [
-      { action: 'open',    title: 'Open' },
-      { action: 'dismiss', title: 'Dismiss' },
-    ],
+    actions: is8HrReminder
+      ? [
+          { action: 'checkout', title: '✅ Check Out Now' },
+          { action: 'dismiss',  title: 'Later' },
+        ]
+      : [
+          { action: 'open',    title: 'Open' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ],
   };
 
   event.waitUntil(
@@ -83,7 +92,10 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   if (event.action === 'dismiss') return;
 
-  const targetUrl = event.notification.data?.url || '/';
+  // 'checkout' action and 'open' both navigate to dashboard
+  const targetUrl = event.action === 'checkout'
+    ? '/dashboard'
+    : (event.notification.data?.url || '/');
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

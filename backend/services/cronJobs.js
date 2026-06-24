@@ -5,6 +5,58 @@ const Attendance = require('../models/Attendance');
 const { getTodayDate } = require('./attendanceService');
 const { sendPushToUser } = require('./pushService');
 
+// ── 8-Hour Checkout Reminder ──────────────────────────────────────────────────
+// Runs every minute. Finds all attendance records where:
+//   - checkInTime exists
+//   - checkOutTime is null
+//   - checkInTime is exactly 8 hours ago (within a 1-minute window)
+// Then sends a push notification to that user.
+const checkEightHourReminders = async () => {
+  try {
+    const now = new Date();
+    // Window: between 8h0m0s ago and 8h1m0s ago (to match 1-min cron cadence)
+    const eightHoursAgo    = new Date(now.getTime() - 8 * 60 * 60 * 1000);
+
+    // Find records checked-in between 8h1m ago and exactly 8h ago (1-min window)
+    const windowStart = new Date(now.getTime() - (8 * 60 * 60 * 1000 + 60 * 1000)); // 8h1m ago
+    const windowEnd   = new Date(now.getTime() -  8 * 60 * 60 * 1000);              // 8h0m ago
+
+    const unique = await Attendance.find({
+      checkInTime:  { $gte: windowStart, $lte: windowEnd },
+      checkOutTime: null,
+    }).populate('userId', 'name');
+
+    if (unique.length === 0) return;
+
+    console.log(`[8HR] Sending checkout reminders to ${unique.length} user(s)`);
+
+    const checkoutMessages = [
+      "You've been working for 8 hours! Time to wrap up and check out 🏁",
+      "8 hours in — amazing effort! Don't forget to check out 🌙",
+      "Your 8-hour shift is complete! Remember to clock out 🚪",
+      "You've hit 8 hours today — head home and recharge! 🏠",
+      "Great work today! 8 hours done. Check out before you leave 💪",
+    ];
+
+    await Promise.all(
+      unique.map((record) => {
+        const name = record.userId?.name || 'there';
+        const msg  = checkoutMessages[Math.floor(Math.random() * checkoutMessages.length)];
+        return sendPushToUser(record.userId._id || record.userId, {
+          title: '⏰ 8 Hours Completed — Check Out!',
+          body:  `Hey ${name}! ${msg}`,
+          tag:   'checkout-8hr-reminder',
+          url:   '/dashboard',
+        }).catch((err) => {
+          console.warn(`[8HR] Push failed for user ${record.userId}: ${err.message}`);
+        });
+      })
+    );
+  } catch (err) {
+    console.error('[8HR] Error in checkout reminder job:', err.message);
+  }
+};
+
 const DATA_START_DATE = '2026-04-01';
 
 // Self-ping to keep Render alive — hits our own /api/health endpoint
@@ -69,7 +121,14 @@ const start = () => {
     }
   })();
 
-  console.log('[CRON] Jobs scheduled — keep-alive active 8AM–9PM IST');
+  // ── 8-Hour Checkout Reminder — runs every minute ──────────────────────────
+  // Checks if any checked-in user crossed 8 hours without checking out
+  // and fires a server-side push notification (works even if app is closed).
+  cron.schedule('* * * * *', () => {
+    checkEightHourReminders();
+  });
+
+  console.log('[CRON] Jobs scheduled — keep-alive active 8AM–9PM IST, 8hr reminders active');
 };
 
 module.exports = { start, DATA_START_DATE };

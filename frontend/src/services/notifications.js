@@ -205,6 +205,25 @@ export function notifyLowAttendance(percent) {
   }
 }
 
+// ── 8-Hour Checkout Reminder ─────────────────────────────────
+// Called by the browser-side timer (fallback) AND fired by the
+// service worker when the server sends a push notification.
+
+export function notifyEightHourCheckout() {
+  const messages = [
+    "You've been working for 8 hours! Time to wrap up and check out 🏁",
+    "8 hours in — amazing effort! Don't forget to check out 🌙",
+    "Your 8-hour shift is complete! Remember to clock out 🚪",
+    "You've hit 8 hours today — head home and recharge! 🏠",
+    "Great work today! 8 hours done. Check out before you leave 💪",
+  ];
+  showNotification(
+    '⏰ 8 Hours Completed — Check Out!',
+    messages[Math.floor(Math.random() * messages.length)],
+    { tag: 'checkout-8hr-reminder', requireInteraction: true, url: '/dashboard' }
+  );
+}
+
 // ── Schedule browser-side reminders ─────────────────────────
 
 let reminderTimers = [];
@@ -213,6 +232,8 @@ export function scheduleReminders(attendance) {
   reminderTimers.forEach(clearTimeout);
   reminderTimers = [];
   const now = Date.now();
+
+  // ── Check-In reminder at 9:30 AM IST ─────────────────────
   if (!attendance?.checkInTime) {
     const t = makeISTTime(9, 30);
     const ms = t.getTime() - now;
@@ -221,12 +242,27 @@ export function scheduleReminders(attendance) {
       console.log(`[Notif] Check-in reminder in ${Math.round(ms / 60000)}min (9:30 AM IST)`);
     }
   }
+
+  // ── Check-Out reminder at 6:30 PM IST ────────────────────
   if (attendance?.checkInTime && !attendance?.checkOutTime) {
     const t = makeISTTime(18, 30);
     const ms = t.getTime() - now;
     if (ms > 0 && ms < 86400000) {
       reminderTimers.push(setTimeout(notifyCheckOutReminder, ms));
       console.log(`[Notif] Check-out reminder in ${Math.round(ms / 60000)}min (6:30 PM IST)`);
+    }
+  }
+
+  // ── 8-Hour reminder — fires exactly 8h after check-in ────
+  // This is a browser-side fallback. The server also sends a push
+  // notification at the 8-hour mark (which works even when app is closed).
+  if (attendance?.checkInTime && !attendance?.checkOutTime) {
+    const checkInMs = new Date(attendance.checkInTime).getTime();
+    const eightHourMs = checkInMs + 8 * 60 * 60 * 1000;
+    const msUntil8hr = eightHourMs - now;
+    if (msUntil8hr > 0 && msUntil8hr < 86400000) {
+      reminderTimers.push(setTimeout(notifyEightHourCheckout, msUntil8hr));
+      console.log(`[Notif] 8-hour checkout reminder in ${Math.round(msUntil8hr / 60000)}min`);
     }
   }
 }
