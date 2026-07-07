@@ -11,6 +11,7 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 
 function groupByDate(records) {
   const map = {};
+  if (!Array.isArray(records)) return [];
   for (const r of records) { if (!map[r.date]) map[r.date] = []; map[r.date].push(r); }
   return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
 }
@@ -35,7 +36,9 @@ export default function AdminAttendance() {
   const [prevCheckedIn, setPrevCheckedIn] = useState(null);
 
   useEffect(() => {
-    api.get('/users').then(({ data }) => setEmployees(data.users)).catch(() => {});
+    api.get('/users')
+      .then(({ data }) => setEmployees(Array.isArray(data?.users) ? data.users : []))
+      .catch(() => setEmployees([]));
     enablePushNotifications();
   }, []);
 
@@ -45,12 +48,16 @@ export default function AdminAttendance() {
       const params = { month, year, limit: 200 };
       if (selectedEmployee) params.userId = selectedEmployee;
       const { data } = await api.get('/admin/attendance', { params });
-      setRecords(data.records);
-      setTotal(data.total);
+      // Guard against a malformed/unexpected response shape (e.g. an HTML
+      // error page or a differently-shaped payload from the deployed API)
+      // so the page never crashes on a bad fetch — it just shows "no records".
+      const safeRecords = Array.isArray(data?.records) ? data.records : [];
+      setRecords(safeRecords);
+      setTotal(typeof data?.total === 'number' ? data.total : safeRecords.length);
       const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear();
       if (isCurrentMonth && prevCheckedIn !== null) {
         const todayStr = now.toISOString().split('T')[0];
-        const todayChecked = data.records.filter(r => r.date === todayStr && r.checkInTime);
+        const todayChecked = safeRecords.filter(r => r.date === todayStr && r.checkInTime);
         if (todayChecked.length > prevCheckedIn) {
           const newest = todayChecked[todayChecked.length - 1];
           notifyNewCheckIn(newest?.userId?.name || 'Someone', newest?.status);
@@ -61,11 +68,13 @@ export default function AdminAttendance() {
         setPrevCheckedIn(todayChecked.length);
       } else if (prevCheckedIn === null) {
         const todayStr = now.toISOString().split('T')[0];
-        const todayCount = data.records.filter(r => r.date === todayStr && r.checkInTime).length;
+        const todayCount = safeRecords.filter(r => r.date === todayStr && r.checkInTime).length;
         setPrevCheckedIn(todayCount);
       }
-    } catch { toast.error('Failed to load attendance records'); }
-    finally { setLoading(false); }
+    } catch {
+      toast.error('Failed to load attendance records');
+      setRecords([]);
+    } finally { setLoading(false); }
   }, [month, year, selectedEmployee, employees, prevCheckedIn]);
 
   useEffect(() => { fetchRecords(); }, [month, year, selectedEmployee]);

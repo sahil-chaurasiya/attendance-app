@@ -96,10 +96,11 @@ export default function AdminEmployeeAttendance() {
       setLoading(true);
       try {
         const { data } = await api.get(`/admin/employees/${id}/attendance`, { params: { month, year } });
-        setEmp(data.user);
-        setRecords(data.records);
+        setEmp(data?.user || null);
+        setRecords(Array.isArray(data?.records) ? data.records : []);
       } catch {
         toast.error('Failed to load attendance');
+        setRecords([]);
       } finally {
         setLoading(false);
       }
