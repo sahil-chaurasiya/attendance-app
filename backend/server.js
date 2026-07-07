@@ -20,6 +20,19 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Force no caching on every API response — at the browser, any reverse
+// proxy, and any CDN edge in front of this app. Without this, a caching
+// layer between the client and this server can serve a stale response
+// (e.g. an old/empty result) without the request ever reaching this
+// process, which is invisible to any logging we add here.
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store'); // respected by most CDN edges (Cloudflare, Fastly, etc.)
+  next();
+});
+
 // Routes
 app.use('/api/auth',             require('./routes/auth'));
 app.use('/api/attendance',       require('./routes/attendance'));
