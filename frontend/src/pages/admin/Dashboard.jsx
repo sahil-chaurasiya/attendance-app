@@ -3,8 +3,13 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import Spinner from '../../components/common/Spinner';
 import StatusBadge from '../../components/common/StatusBadge';
+import HolidaysCard from '../../components/admin/HolidaysCard';
 
 const fmt = (d) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
+// Holiday/on-leave records never have a check-in, but they should never be
+// shown or counted as "absent" either.
+const isExemptStatus = (r) => r?.status === 'holiday' || r?.status === 'on_leave';
+const displayStatus = (r) => (r?.checkInTime || isExemptStatus(r)) ? r.status : 'absent';
 
 const panelStyle = {
   background: '#0f0f0f',
@@ -122,6 +127,9 @@ export default function AdminDashboard() {
         <p className="text-gray-600 text-sm mt-1 font-mono">{today}</p>
       </div>
 
+      {/* Holidays */}
+      <HolidaysCard onChange={fetchDashboard} />
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 stagger">
         <StatCard label="Total Employees" value={dashboard?.totalEmployees} accent="#F5C518" active={activeFilter === 'total'}   onClick={() => handleKpiClick('total')}   />
@@ -172,7 +180,7 @@ export default function AdminDashboard() {
                         {r.checkOutTime && <p className="text-xs text-amber-400 font-mono">{fmt(r.checkOutTime)}</p>}
                       </div>
                     )}
-                    <StatusBadge status={r.checkInTime ? r.status : 'absent'} />
+                    <StatusBadge status={displayStatus(r)} />
                   </div>
                 </div>
               ))}

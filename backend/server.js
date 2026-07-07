@@ -43,6 +43,7 @@ app.use('/api/wfh',              require('./routes/wfh'));
 app.use('/api/leave',            require('./routes/leave'));
 app.use('/api/regularization',   require('./routes/regularization')); // ← Attendance Regularization
 app.use('/api/notifications',    require('./routes/notifications'));
+app.use('/api/holidays',         require('./routes/holiday'));
 
 // Health check
 app.get('/api/health', (req, res) => {

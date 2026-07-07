@@ -3,6 +3,7 @@ const Attendance = require('../models/Attendance');
 const LeaveRequest = require('../models/LeaveRequest');
 const WFHRequest = require('../models/WFHRequest');
 const RegularizationRequest = require('../models/RegularizationRequest');
+const Holiday = require('../models/Holiday');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { getTodayDate } = require('../services/attendanceService');
 const ExcelJS = require('exceljs');
@@ -23,9 +24,13 @@ const getDashboard = asyncHandler(async (req, res) => {
   const present   = todayRecords.filter((r) => r.status === 'present').length;
   const late      = todayRecords.filter((r) => r.status === 'late').length;
   const onLeave   = todayRecords.filter((r) => r.status === 'on_leave').length;
+  const onHoliday = todayRecords.filter((r) => r.status === 'holiday').length;
   const checkedIn = todayRecords.filter((r) => r.checkInTime).length;
-  // Absent = everyone who hasn't checked in and is not on approved leave
-  const absent    = totalEmployees - checkedIn - onLeave;
+  // Absent = everyone who hasn't checked in, is not on approved leave, and
+  // isn't covered by a declared holiday
+  const absent    = Math.max(0, totalEmployees - checkedIn - onLeave - onHoliday);
+
+  const todayHoliday = await Holiday.findOne({ date: today });
 
   const totalWorkHours = todayRecords.reduce((acc, r) => acc + (r.workHours || 0), 0);
   const avgWorkHours = checkedIn > 0 ? (totalWorkHours / checkedIn).toFixed(2) : 0;
@@ -43,7 +48,12 @@ const getDashboard = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    dashboard: { totalEmployees, present, late, onLeave, absent, checkedIn, avgWorkHours: parseFloat(avgWorkHours), liveFeed },
+    dashboard: {
+      totalEmployees, present, late, onLeave, holiday: onHoliday, absent, checkedIn,
+      avgWorkHours: parseFloat(avgWorkHours), liveFeed,
+      todayIsHoliday: !!todayHoliday,
+      todayHolidayName: todayHoliday?.name || null,
+    },
   });
 });
 
@@ -191,11 +201,18 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
     return ist.toISOString().split('T')[0];
   })();
   const effectiveEnd = endDate > todayIST ? todayIST : endDate;
+
+  // Declared holidays in this period don't count as working days, so nobody
+  // is marked absent for them
+  const holidaysInPeriod = await Holiday.find({ date: { $gte: startDate, $lte: endDate } }).lean();
+  const holidayDateSet = new Set(holidaysInPeriod.map((h) => h.date));
+
   let workingDaysInPeriod = 0;
   const cur = new Date(startDate + 'T00:00:00Z');
   const end = new Date(effectiveEnd + 'T00:00:00Z');
   while (cur <= end) {
-    if (cur.getUTCDay() !== 0) workingDaysInPeriod++;
+    const dStr = cur.toISOString().split('T')[0];
+    if (cur.getUTCDay() !== 0 && !holidayDateSet.has(dStr)) workingDaysInPeriod++;
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
 
@@ -211,6 +228,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
       present: 0,
       late: 0,
       absent: 0,
+      holiday: 0,
       totalWorkHours: 0,
       records: [],
     };
@@ -221,10 +239,11 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
     const uid = record.userId._id.toString();
     // Include deleted employees' records too (they won't be in the seeded map)
     if (!employeeMap[uid]) {
-      employeeMap[uid] = { user: record.userId, present: 0, late: 0, absent: 0, totalWorkHours: 0, records: [] };
+      employeeMap[uid] = { user: record.userId, present: 0, late: 0, absent: 0, holiday: 0, totalWorkHours: 0, records: [] };
     }
     if (record.status === 'present') employeeMap[uid].present++;
     else if (record.status === 'late') employeeMap[uid].late++;
+    else if (record.status === 'holiday') employeeMap[uid].holiday++;
     employeeMap[uid].totalWorkHours += record.workHours || 0;
     employeeMap[uid].records.push(record);
   }
@@ -291,6 +310,8 @@ const exportCSV = asyncHandler(async (req, res) => {
     lateText:   '92400E',
     absent:     'FEE2E2',
     absentText: '991B1B',
+    holiday:    'E0E7FF',
+    holidayText:'3730A3',
     rowEven:    'F8FAFC',
     rowOdd:     'FFFFFF',
     border:     'CBD5E1',
@@ -381,6 +402,7 @@ const exportCSV = asyncHandler(async (req, res) => {
     if (r.status === 'present') { statusBg = COLOR.present; statusFg = COLOR.presentText; }
     else if (r.status === 'late') { statusBg = COLOR.late; statusFg = COLOR.lateText; }
     else if (r.status === 'absent') { statusBg = COLOR.absent; statusFg = COLOR.absentText; }
+    else if (r.status === 'holiday') { statusBg = COLOR.holiday; statusFg = COLOR.holidayText; }
 
     values.forEach((v, ci) => {
       const cell = row.getCell(ci + 1);
@@ -415,9 +437,14 @@ const exportCSV = asyncHandler(async (req, res) => {
   const isCurrentMonth = todayDate.getFullYear() === targetYear && todayDate.getMonth() + 1 === targetMonth;
   const countUpToDay = isCurrentMonth ? todayDate.getDate() : lastDay;
 
+  // Declared holidays in this month don't count as working days
+  const exportHolidays = await Holiday.find({ date: { $gte: startDate, $lte: endDate } }).lean();
+  const exportHolidaySet = new Set(exportHolidays.map((h) => h.date));
+
   let workingDays = 0;
   for (let d = 1; d <= countUpToDay; d++) {
-    if (new Date(targetYear, targetMonth - 1, d).getDay() !== 0) workingDays++;
+    const dStr = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    if (new Date(targetYear, targetMonth - 1, d).getDay() !== 0 && !exportHolidaySet.has(dStr)) workingDays++;
   }
 
   const allEmployees = await User.find({ role: 'employee', isActive: true }).lean();

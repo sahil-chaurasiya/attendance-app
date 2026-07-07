@@ -7,6 +7,10 @@ import { enablePushNotifications, notifyNewCheckIn, notifyLowAttendance } from '
 
 const fmt  = (d) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
 const fmtH = (h) => { if (!h) return '—'; const hrs = Math.floor(h); const min = Math.round((h - hrs) * 60); return `${hrs}h ${min}m`; };
+// Holiday/on-leave records never have a check-in, but they should never be
+// shown or counted as "absent" either.
+const isExemptStatus = (r) => r?.status === 'holiday' || r?.status === 'on_leave';
+const displayStatus = (r) => (r?.checkInTime || isExemptStatus(r)) ? r.status : 'absent';
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 function groupByDate(records) {
@@ -241,7 +245,7 @@ export default function AdminAttendance() {
                           <div className="text-right hidden sm:block">
                             <p className="text-xs text-brand-500 font-mono">{fmtH(r.workHours)}</p>
                           </div>
-                          <StatusBadge status={r.checkInTime ? r.status : 'absent'} />
+                          <StatusBadge status={displayStatus(r)} />
                         </div>
                       </div>
                     ))}
@@ -277,7 +281,7 @@ export default function AdminAttendance() {
                     <td className="px-4 py-3 text-gray-500 font-mono text-xs">
                       {new Date(r.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
-                    <td className="px-4 py-3"><StatusBadge status={r.checkInTime ? r.status : 'absent'} /></td>
+                    <td className="px-4 py-3"><StatusBadge status={displayStatus(r)} /></td>
                     <td className="px-4 py-3 font-mono text-xs text-emerald-400">{fmt(r.checkInTime)}</td>
                     <td className="px-4 py-3 font-mono text-xs text-amber-400">{fmt(r.checkOutTime)}</td>
                     <td className="px-4 py-3 font-mono text-xs text-brand-500">{fmtH(r.workHours)}</td>
@@ -299,7 +303,7 @@ export default function AdminAttendance() {
                       {new Date(r.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                     </p>
                   </div>
-                  <StatusBadge status={r.checkInTime ? r.status : 'absent'} />
+                  <StatusBadge status={displayStatus(r)} />
                 </div>
                 {r.checkInTime && (
                   <div className="grid grid-cols-3 gap-2 text-center bg-white/[0.03] border border-white/[0.04] rounded-xl p-2.5">

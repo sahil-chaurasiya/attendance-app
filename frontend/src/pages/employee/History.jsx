@@ -31,6 +31,9 @@ const countWorkingDays = (month, year) => {
 };
 
 const isFullyAttended = (record) => record && record.checkInTime && record.checkOutTime;
+// Holiday/on-leave days never have a check-in/out, but they must never be
+// treated or displayed as absent.
+const isExemptStatus = (record) => record && (record.status === 'holiday' || record.status === 'on_leave');
 
 function buildCalendarGrid(month, year, records) {
   const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
@@ -51,6 +54,7 @@ function buildCalendarGrid(month, year, records) {
     const record = byDate[dateStr] || null;
     let status = null;
     if (isBeforeStart)                                             status = 'na';
+    else if (isExemptStatus(record))                               status = record.status;
     else if (isSunday && isPast)                                   status = 'sunday';
     else if (isFullyAttended(record))                              status = record.status;
     else if (record?.checkInTime && !record?.checkOutTime && !isToday) status = 'absent';
@@ -68,6 +72,8 @@ function getDayStyle(status, isToday) {
   if (status === 'present') return `${base} bg-emerald-500/[0.1] border border-emerald-500/25 text-emerald-300`;
   if (status === 'late')    return `${base} bg-amber-500/[0.1] border border-amber-500/25 text-amber-300`;
   if (status === 'absent')  return `${base} bg-red-500/[0.1] border border-red-500/25 text-red-400`;
+  if (status === 'holiday') return `${base} bg-indigo-500/[0.1] border border-indigo-500/25 text-indigo-300`;
+  if (status === 'on_leave') return `${base} bg-sky-500/[0.1] border border-sky-500/25 text-sky-300`;
   if (status === 'today')   return `${base} bg-brand-500/[0.08] border border-brand-500/30 text-brand-400`;
   return `${base} text-gray-600`;
 }
@@ -113,6 +119,18 @@ function DayDetailModal({ day, onClose }) {
             <p className="text-2xl mb-2">🌟</p>
             <p className="text-brand-500 font-semibold font-display">Sunday Rest Day</p>
             <p className="text-gray-600 text-xs mt-1">Automatically marked as present</p>
+          </div>
+        ) : status === 'holiday' ? (
+          <div className="bg-indigo-500/[0.07] border border-indigo-500/20 rounded-xl p-4 text-center">
+            <p className="text-2xl mb-2">🎉</p>
+            <p className="text-indigo-300 font-semibold font-display">{record?.holidayName || 'Holiday'}</p>
+            <p className="text-gray-600 text-xs mt-1">Automatically marked as present</p>
+          </div>
+        ) : status === 'on_leave' ? (
+          <div className="bg-sky-500/[0.07] border border-sky-500/20 rounded-xl p-4 text-center">
+            <p className="text-2xl mb-2">🏖️</p>
+            <p className="text-sky-300 font-semibold font-display">On Leave</p>
+            <p className="text-gray-600 text-xs mt-1">Approved leave — not counted as absent</p>
           </div>
         ) : status === 'absent' ? (
           <div className="bg-red-500/[0.07] border border-red-500/20 rounded-xl p-4 text-center">
@@ -175,6 +193,7 @@ export default function EmployeeHistory() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear]   = useState(now.getFullYear());
   const [records, setRecords] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [view, setView] = useState('calendar');
@@ -200,7 +219,14 @@ export default function EmployeeHistory() {
       } catch { toast.error('Failed to load history'); }
       finally { setLoading(false); }
     };
+    const fetchHolidays = async () => {
+      try {
+        const { data } = await api.get('/holidays', { params: { month, year } });
+        setHolidays(data.holidays || []);
+      } catch { /* non-critical, ignore */ }
+    };
     fetchHistory();
+    fetchHolidays();
   }, [month, year]);
 
   useEffect(() => {
@@ -218,7 +244,15 @@ export default function EmployeeHistory() {
   const late    = records.filter(r => isFullyAttended(r) && r.status === 'late').length;
   const withFullAttendance = present + late;
   const passedSundays = calendarDays.filter(d => d && d.isSunday && d.isPast && !d.isBeforeStart).length;
-  const workingDays = countWorkingDays(month, year);
+  // Declared holidays that have already occurred don't count as working days,
+  // so they're never counted absent (future holidays aren't in the elapsed
+  // working-day count yet, so they must not be subtracted from it either)
+  const todayIsoIST = (() => {
+    const ist = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    return ist.toISOString().split('T')[0];
+  })();
+  const holidayWorkingDays = holidays.filter(h => h.date <= todayIsoIST && new Date(h.date + 'T00:00:00').getDay() !== 0).length;
+  const workingDays = Math.max(0, countWorkingDays(month, year) - holidayWorkingDays);
   const absent = Math.max(0, workingDays - withFullAttendance);
   const validYears = getValidYears();
 
@@ -319,11 +353,11 @@ export default function EmployeeHistory() {
                     {day.d}
                   </span>
                   {/* Status dot */}
-                  {['present','late','absent','sunday'].includes(day.status) && (
+                  {['present','late','absent','sunday','holiday','on_leave'].includes(day.status) && (
                     <span
                       className="w-1 h-1 rounded-full mt-0.5"
                       style={{
-                        background: day.status === 'present' ? '#34d399' : day.status === 'late' ? '#fbbf24' : day.status === 'absent' ? '#f87171' : '#F5C518'
+                        background: day.status === 'present' ? '#34d399' : day.status === 'late' ? '#fbbf24' : day.status === 'absent' ? '#f87171' : day.status === 'holiday' ? '#818cf8' : day.status === 'on_leave' ? '#38bdf8' : '#F5C518'
                       }}
                     />
                   )}
@@ -338,6 +372,7 @@ export default function EmployeeHistory() {
               { color: '#34d399', label: 'Present' },
               { color: '#fbbf24', label: 'Late' },
               { color: '#f87171', label: 'Absent' },
+              { color: '#818cf8', label: 'Holiday' },
               { color: '#F5C518', label: 'Sunday' },
             ].map(({ color, label }) => (
               <div key={label} className="flex items-center gap-1.5">
@@ -357,7 +392,7 @@ export default function EmployeeHistory() {
             </div>
           ) : (
             records.map((r) => {
-              const attended = isFullyAttended(r);
+              const attended = isFullyAttended(r) || isExemptStatus(r);
               const noCheckout = r.checkInTime && !r.checkOutTime;
               return (
                 <div

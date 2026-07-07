@@ -7,6 +7,9 @@ import StatusBadge from '../../components/common/StatusBadge';
 
 const fmt   = (d) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }) : '—';
 const fmtH  = (h) => { if (!h) return '—'; const hrs = Math.floor(h); const min = Math.round((h - hrs) * 60); return `${hrs}h ${min}m`; };
+// Holiday/on-leave records never have a check-in, but they must never be
+// treated or displayed as absent.
+const isExemptStatus = (record) => record && (record.status === 'holiday' || record.status === 'on_leave');
 
 const MONTHS     = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_NAMES  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -53,6 +56,7 @@ function buildCalendarGrid(month, year, records) {
 
     let status = null;
     if (isBeforeStart)                       status = 'na';
+    else if (isExemptStatus(record))         status = record.status;
     else if (isSunday && isPast)             status = 'sunday';
     else if (record?.checkInTime)            status = record.status;
     else if (isPast && !isToday && !isSunday) status = 'absent';
@@ -67,6 +71,8 @@ const DAY_STYLE = {
   present: 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300',
   late:    'bg-amber-500/15  border border-amber-500/30  text-amber-300',
   absent:  'bg-red-500/10    border border-red-500/20    text-red-400',
+  holiday: 'bg-indigo-500/15 border border-indigo-500/30 text-indigo-300',
+  on_leave:'bg-sky-500/15    border border-sky-500/30    text-sky-300',
   sunday:  'bg-brand-600/15  border border-brand-600/30  text-brand-400',
   today:   'bg-brand-500/15  border border-brand-500/40  text-brand-300 ring-1 ring-brand-500/50',
   na:      'text-gray-700 opacity-30',
@@ -75,6 +81,8 @@ const DAY_DOT = {
   present: 'bg-emerald-400',
   late:    'bg-amber-400',
   absent:  'bg-red-400',
+  holiday: 'bg-indigo-400',
+  on_leave:'bg-sky-400',
   sunday:  'bg-brand-400',
 };
 
@@ -120,7 +128,8 @@ export default function AdminEmployeeAttendance() {
   const present       = records.filter(r => r.status === 'present').length;
   const late          = records.filter(r => r.status === 'late').length;
   const withCheckIn   = records.filter(r => r.checkInTime).length;
-  const absent        = Math.max(0, workingDays - withCheckIn);
+  const exemptCount   = records.filter(r => isExemptStatus(r)).length;
+  const absent        = Math.max(0, workingDays - withCheckIn - exemptCount);
   const pct           = workingDays > 0 ? Math.round(((present + late) / workingDays) * 100) : 0;
   const totalHours    = records.reduce((a, r) => a + (r.workHours || 0), 0);
   const calendarDays  = buildCalendarGrid(month, year, records);
@@ -145,7 +154,8 @@ export default function AdminEmployeeAttendance() {
       if (!isPast || isBeforeStart) continue; // skip future & pre-launch
       const record = byDate[dateStr] || null;
       let status = null;
-      if (isSunday)              status = 'sunday';
+      if (isSunday)                 status = 'sunday';
+      else if (isExemptStatus(record)) status = record.status;
       else if (record?.checkInTime) status = record.status;
       else                       status = 'absent';
       list.push({ d, dateStr, date, isSunday, isToday, record, status });
@@ -263,7 +273,7 @@ export default function AdminEmployeeAttendance() {
                 })}
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-2 border-t border-white/[0.05]">
-                {[['bg-emerald-400','Present'],['bg-amber-400','Late'],['bg-red-400','Absent'],['bg-brand-400','Sunday'],].map(([c,l]) => (
+                {[['bg-emerald-400','Present'],['bg-amber-400','Late'],['bg-red-400','Absent'],['bg-indigo-400','Holiday'],['bg-brand-400','Sunday'],].map(([c,l]) => (
                   <div key={l} className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${c}`} /><span className="text-[10px] text-gray-400">{l}</span>
                   </div>
@@ -301,6 +311,14 @@ export default function AdminEmployeeAttendance() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm">🌟</span>
                           <span className="text-sm text-brand-400 font-medium">Sunday — Weekly Off</span>
+                        </div>
+                      ) : isExemptStatus(record) ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm">{record.status === 'holiday' ? '🎉' : '🏖️'}</span>
+                          <StatusBadge status={record.status} />
+                          {record.status === 'holiday' && record.holidayName && (
+                            <span className="text-xs text-gray-400">{record.holidayName}</span>
+                          )}
                         </div>
                       ) : record?.checkInTime ? (
                         <>
@@ -362,6 +380,18 @@ export default function AdminEmployeeAttendance() {
                 <p className="text-3xl mb-2">🌟</p>
                 <p className="text-brand-400 font-semibold">Sunday Rest Day</p>
                 <p className="text-gray-400 text-xs mt-1">Automatically marked as present</p>
+              </div>
+            ) : selDay.status === 'holiday' ? (
+              <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 text-center">
+                <p className="text-3xl mb-2">🎉</p>
+                <p className="text-indigo-300 font-semibold">{selDay.record?.holidayName || 'Holiday'}</p>
+                <p className="text-gray-400 text-xs mt-1">Automatically marked as present</p>
+              </div>
+            ) : selDay.status === 'on_leave' ? (
+              <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-4 text-center">
+                <p className="text-3xl mb-2">🏖️</p>
+                <p className="text-sky-300 font-semibold">On Leave</p>
+                <p className="text-gray-400 text-xs mt-1">Approved leave — not counted as absent</p>
               </div>
             ) : selDay.status === 'absent' ? (
               <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
