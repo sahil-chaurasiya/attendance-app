@@ -129,6 +129,7 @@ export default function AdminEmployeeAttendance() {
   const late          = records.filter(r => r.status === 'late').length;
   const withCheckIn   = records.filter(r => r.checkInTime).length;
   const exemptCount   = records.filter(r => isExemptStatus(r)).length;
+  const approvedLeaves = records.filter(r => r.status === 'on_leave').length;
   const absent        = Math.max(0, workingDays - withCheckIn - exemptCount);
   const pct           = workingDays > 0 ? Math.round(((present + late) / workingDays) * 100) : 0;
   const totalHours    = records.reduce((a, r) => a + (r.workHours || 0), 0);
@@ -225,11 +226,12 @@ export default function AdminEmployeeAttendance() {
       ) : (
         <>
           {/* ── Stats ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
             {[
               { label: 'Present',  value: present,          cls: 'text-emerald-400' },
               { label: 'Late',     value: late,             cls: 'text-amber-400'   },
               { label: 'Absent',   value: absent,           cls: 'text-red-400'     },
+              { label: 'Approved Leaves', value: approvedLeaves, cls: 'text-sky-400' },
               { label: 'Sundays',  value: passedSundays,    cls: 'text-brand-500'   },
               { label: 'Hrs Worked', value: fmtH(totalHours), cls: 'text-purple-400' },
               { label: 'Attend %', value: `${pct}%`,        cls: pct >= 90 ? 'text-emerald-400' : pct >= 75 ? 'text-amber-400' : 'text-red-400' },
