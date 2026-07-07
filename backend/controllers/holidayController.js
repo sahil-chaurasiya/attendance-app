@@ -2,6 +2,7 @@ const Holiday = require('../models/Holiday');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { getAttendanceStatus } = require('../services/attendanceService');
 
 // @desc    Get holidays (optionally filtered by month/year)
 // @route   GET /api/holidays?month=&year=
@@ -47,13 +48,23 @@ const createHoliday = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   });
 
-  // Apply to every active employee — upsert their attendance record for the
-  // day as 'holiday' so dashboards/reports treat them as accounted-for
-  // (never absent) without wiping out any real check-in they may already have.
+  // Apply to every active employee EXCEPT those who already have a real
+  // check-in for the day — those employees are already present/late (i.e.
+  // already "not absent"), so we leave their record completely untouched.
+  // This is what makes holiday removal safe to fully reverse later: we only
+  // ever create/modify synthetic 'holiday' records for people who had no
+  // attendance data of their own to begin with.
   const employees = await User.find({ role: 'employee', isActive: true }).select('_id');
+  const existingRecords = await Attendance.find({ userId: { $in: employees.map((e) => e._id) }, date })
+    .select('userId checkInTime')
+    .lean();
+  const alreadyCheckedInIds = new Set(
+    existingRecords.filter((r) => r.checkInTime).map((r) => r.userId.toString())
+  );
+  const employeesToStub = employees.filter((e) => !alreadyCheckedInIds.has(e._id.toString()));
 
   await Promise.all(
-    employees.map((emp) =>
+    employeesToStub.map((emp) =>
       Attendance.findOneAndUpdate(
         { userId: emp._id, date },
         {
@@ -61,8 +72,6 @@ const createHoliday = asyncHandler(async (req, res) => {
             status: 'holiday',
             holidayName: name.trim(),
             notes: `Holiday: ${name.trim()}`,
-          },
-          $setOnInsert: {
             checkInTime: null,
             checkOutTime: null,
             workHours: 0,
@@ -75,7 +84,8 @@ const createHoliday = asyncHandler(async (req, res) => {
 
   res.status(201).json({
     success: true,
-    message: `Holiday "${holiday.name}" added — applied to ${employees.length} employee(s)`,
+    message: `Holiday "${holiday.name}" added — applied to ${employeesToStub.length} employee(s)`
+      + (alreadyCheckedInIds.size > 0 ? ` (${alreadyCheckedInIds.size} already checked in today and were left as-is)` : ''),
     holiday,
   });
 });
@@ -87,9 +97,24 @@ const deleteHoliday = asyncHandler(async (req, res) => {
   const holiday = await Holiday.findById(req.params.id);
   if (!holiday) return res.status(404).json({ success: false, message: 'Holiday not found' });
 
-  // Only remove attendance records that were purely auto-generated for the
-  // holiday (nobody actually checked in) — never touch real attendance data.
+  // Records with no check-in were purely synthetic (created only because of
+  // this holiday) — safe to delete outright, reverting to "no record".
   await Attendance.deleteMany({ date: holiday.date, status: 'holiday', checkInTime: null });
+
+  // Defensive cleanup: if any record for this date is still stuck on
+  // status 'holiday' but DOES have a check-in (e.g. from data created
+  // before this fix, or any other edge case), recompute what its status
+  // should actually be from the check-in time rather than leaving it
+  // wrongly stuck as 'holiday' forever.
+  const stuck = await Attendance.find({ date: holiday.date, status: 'holiday', checkInTime: { $ne: null } });
+  await Promise.all(
+    stuck.map((rec) => {
+      rec.status = getAttendanceStatus(rec.checkInTime);
+      rec.holidayName = '';
+      if (rec.notes && rec.notes.startsWith('Holiday:')) rec.notes = '';
+      return rec.save();
+    })
+  );
 
   await holiday.deleteOne();
   res.json({ success: true, message: `Holiday "${holiday.name}" removed` });
