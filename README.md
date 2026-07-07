@@ -331,5 +331,4 @@ To change the office location:
 - **Weekdays (Mon–Fri)**: On-time if check-in ≤ 10:30 AM, else Late
 - **Saturday**: On-time if check-in ≤ 11:00 AM, else Late
 - **Auto-checkout**: Runs at 8 PM IST if employee forgot to check out
-t e s t  
- 
+t
