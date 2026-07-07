@@ -34,6 +34,8 @@ export default function AdminAttendance() {
   const [view, setView]       = useState('list');
   const [expandedDate, setExpandedDate] = useState(null);
   const [prevCheckedIn, setPrevCheckedIn] = useState(null);
+  const [fetchError, setFetchError] = useState(false);
+  const [fetchErrorDetail, setFetchErrorDetail] = useState(null);
 
   useEffect(() => {
     api.get('/users')
@@ -42,18 +44,23 @@ export default function AdminAttendance() {
     enablePushNotifications();
   }, []);
 
-  const fetchRecords = useCallback(async () => {
+  const fetchRecords = useCallback(async (isRetry = false) => {
     setLoading(true);
     try {
       const params = { month, year, limit: 200 };
       if (selectedEmployee) params.userId = selectedEmployee;
-      const { data } = await api.get('/admin/attendance', { params });
+      // 30s timeout: free-tier hosts (e.g. Render) can take 15-40s to wake up
+      // from a cold start, and the default 15s client timeout was killing
+      // that first request before the backend even had a chance to respond.
+      const { data } = await api.get('/admin/attendance', { params, timeout: 30000 });
       // Guard against a malformed/unexpected response shape (e.g. an HTML
       // error page or a differently-shaped payload from the deployed API)
       // so the page never crashes on a bad fetch — it just shows "no records".
       const safeRecords = Array.isArray(data?.records) ? data.records : [];
       setRecords(safeRecords);
       setTotal(typeof data?.total === 'number' ? data.total : safeRecords.length);
+      setFetchError(false);
+      setFetchErrorDetail(null);
       const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear();
       if (isCurrentMonth && prevCheckedIn !== null) {
         const todayStr = now.toISOString().split('T')[0];
@@ -71,9 +78,23 @@ export default function AdminAttendance() {
         const todayCount = safeRecords.filter(r => r.date === todayStr && r.checkInTime).length;
         setPrevCheckedIn(todayCount);
       }
-    } catch {
+    } catch (err) {
+      // First failure on a fresh load gets one automatic retry (covers a
+      // transient blip) before we bother the user with an error state.
+      if (!isRetry) {
+        setLoading(false);
+        return fetchRecords(true);
+      }
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message || (typeof err?.response?.data === 'string' ? err.response.data.slice(0, 200) : null);
+      setFetchErrorDetail({
+        status: status ?? 'no response',
+        message: serverMsg || err?.message || 'Unknown error',
+      });
+      setFetchError(true);
       toast.error('Failed to load attendance records');
-      setRecords([]);
+      // Don't wipe existing good data (e.g. from the periodic 60s refresh)
+      // just because one refresh attempt failed transiently.
     } finally { setLoading(false); }
   }, [month, year, selectedEmployee, employees, prevCheckedIn]);
 
@@ -147,6 +168,18 @@ export default function AdminAttendance() {
 
       {loading ? (
         <div className="flex justify-center py-10"><Spinner size="lg" className="text-brand-500" /></div>
+      ) : fetchError && records.length === 0 ? (
+        <div className="card p-10 text-center space-y-3">
+          <p className="text-gray-400">Couldn't load attendance records.</p>
+          {fetchErrorDetail && (
+            <p className="text-xs font-mono text-red-400 break-words">
+              Status: {String(fetchErrorDetail.status)} — {fetchErrorDetail.message}
+            </p>
+          )}
+          <button onClick={() => fetchRecords()} className="btn-secondary py-2 px-4 text-sm">
+            Retry
+          </button>
+        </div>
       ) : view === 'daywise' ? (
         <div className="space-y-2">
           {dayGroups.length === 0 && <div className="card p-10 text-center text-gray-600">No records for this period</div>}

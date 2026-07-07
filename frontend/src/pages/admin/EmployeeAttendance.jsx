@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -90,23 +90,28 @@ export default function AdminEmployeeAttendance() {
   const [year,    setYear]    = useState(now.getFullYear());
   const [view,    setView]    = useState('list'); // 'list' | 'calendar'
   const [selDay,  setSelDay]  = useState(null);
+  const [fetchError, setFetchError] = useState(false);
 
-  useEffect(() => {
-    const fetch = async () => {
-      setLoading(true);
-      try {
-        const { data } = await api.get(`/admin/employees/${id}/attendance`, { params: { month, year } });
-        setEmp(data?.user || null);
-        setRecords(Array.isArray(data?.records) ? data.records : []);
-      } catch {
-        toast.error('Failed to load attendance');
-        setRecords([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetch();
+  const fetchAttendance = useCallback(async (isRetry = false) => {
+    setLoading(true);
+    try {
+      // 30s timeout: free-tier hosts (e.g. Render) can take 15-40s to wake
+      // up from a cold start, and the default 15s client timeout was
+      // killing that first request before the backend could respond.
+      const { data } = await api.get(`/admin/employees/${id}/attendance`, { params: { month, year }, timeout: 30000 });
+      setEmp(data?.user || null);
+      setRecords(Array.isArray(data?.records) ? data.records : []);
+      setFetchError(false);
+    } catch {
+      if (!isRetry) { setLoading(false); return fetchAttendance(true); }
+      toast.error('Failed to load attendance — server may be waking up, retrying may help');
+      setFetchError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [id, month, year]);
+
+  useEffect(() => { fetchAttendance(); }, [fetchAttendance]);
 
   const handleMonthChange = (m) => { if (year === 2026 && Number(m) < 4) return; setMonth(Number(m)); };
   const handleYearChange  = (y) => { setYear(Number(y)); if (Number(y) === 2026 && month < 4) setMonth(4); };
@@ -200,6 +205,13 @@ export default function AdminEmployeeAttendance() {
 
       {loading ? (
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+      ) : fetchError && records.length === 0 ? (
+        <div className="rounded-2xl p-10 text-center text-gray-400 space-y-3">
+          <p>Couldn't reach the server — it may still be waking up.</p>
+          <button onClick={() => fetchAttendance()} className="btn-secondary py-2 px-4 text-sm">
+            Retry
+          </button>
+        </div>
       ) : (
         <>
           {/* ── Stats ── */}
