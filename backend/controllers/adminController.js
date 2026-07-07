@@ -6,6 +6,7 @@ const RegularizationRequest = require('../models/RegularizationRequest');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { getTodayDate } = require('../services/attendanceService');
 const ExcelJS = require('exceljs');
+const mongoose = require('mongoose');
 
 // Helper: get last day of month
 const getLastDay = (month, year) => new Date(year, month, 0).getDate();
@@ -154,6 +155,11 @@ const getAttendanceRecords = asyncHandler(async (req, res) => {
   }
   if (userId) query.userId = userId;
 
+  // TEMP DIAGNOSTIC LOGGING — remove once the intermittent empty-results
+  // issue on /api/admin/attendance is root-caused. readyState: 1 = connected,
+  // 0 = disconnected, 2 = connecting, 3 = disconnecting.
+  console.log(`[ADMIN-ATTENDANCE] readyState=${mongoose.connection.readyState} query=${JSON.stringify(query)}`);
+
   const records = await Attendance.find(query)
     .populate('userId', 'name email department')
     .sort({ date: -1, checkInTime: -1 })
@@ -161,6 +167,7 @@ const getAttendanceRecords = asyncHandler(async (req, res) => {
     .skip((parseInt(page) - 1) * parseInt(limit));
 
   const total = await Attendance.countDocuments(query);
+  console.log(`[ADMIN-ATTENDANCE] found=${records.length} total=${total}`);
   res.json({ success: true, records, total });
 });
 
