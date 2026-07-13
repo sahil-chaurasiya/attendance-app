@@ -111,7 +111,6 @@ export default function HolidaysCard({ onChange }) {
               <input
                 type="date"
                 className="input w-full"
-                min={todayStr()}
                 max={maxSelectableDate()}
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
